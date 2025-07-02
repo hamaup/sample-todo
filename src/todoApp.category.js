@@ -14,16 +14,42 @@ function createTodoApp(container) {
       
       <div class="tab-content">
         <div class="tab-pane active" data-pane="todos">
+          <!-- カテゴリー管理セクション -->
+          <div class="category-management">
+            <h2>カテゴリー管理</h2>
+            <form id="category-form">
+              <input 
+                type="text"
+                name="category-name"
+                placeholder="カテゴリー名"
+                aria-label="カテゴリー名"
+              />
+              <input 
+                type="color"
+                name="category-color"
+                value="#667eea"
+                aria-label="カテゴリーの色"
+              />
+              <button type="submit">カテゴリー追加</button>
+            </form>
+            <ul id="category-list" aria-label="カテゴリーリスト"></ul>
+          </div>
+
+          <!-- TODO追加フォーム -->
           <form id="todo-form">
             <input 
               type="text" 
               placeholder="TODOを入力"
               aria-label="TODO入力"
             />
+            <select name="category" aria-label="カテゴリー選択">
+              <option value="">カテゴリーなし</option>
+            </select>
             <input 
-              type="datetime-local" 
-              aria-label="期限日時"
-              class="due-date-input"
+              type="text"
+              name="tags"
+              placeholder="タグ（スペース区切り）"
+              aria-label="タグ入力"
             />
             <button type="submit">追加</button>
           </form>
@@ -37,19 +63,23 @@ function createTodoApp(container) {
             />
           </div>
           
-          <nav class="filter-navigation">
-            <button class="filter-button" data-filter="all">全て</button>
-            <button class="filter-button" data-filter="incomplete">未完了</button>
-            <button class="filter-button" data-filter="completed">完了済み</button>
-            <button class="filter-button" data-filter="overdue">期限切れ</button>
-            <button class="filter-button" data-filter="today">今日</button>
-            <button class="filter-button" data-filter="week">今週</button>
-            <button class="filter-button" data-filter="no-due">期限なし</button>
-          </nav>
-          
-          <div class="sort-container">
-            <button class="sort-button" data-sort="order">追加順</button>
-            <button class="sort-button" data-sort="due-date">期限順</button>
+          <!-- フィルターセクション -->
+          <div class="filter-section">
+            <nav class="filter-navigation">
+              <button class="filter-button" data-filter="all">全て</button>
+              <button class="filter-button" data-filter="incomplete">未完了</button>
+              <button class="filter-button" data-filter="completed">完了済み</button>
+            </nav>
+            
+            <div class="advanced-filters">
+              <select id="category-filter" aria-label="カテゴリーフィルター">
+                <option value="">全てのカテゴリー</option>
+              </select>
+              <select id="tag-filter" aria-label="タグフィルター">
+                <option value="">全てのタグ</option>
+              </select>
+              <button id="clear-filters">フィルターをクリア</button>
+            </div>
           </div>
           
           <ul id="todo-list" aria-label="TODOリスト"></ul>
@@ -101,60 +131,80 @@ function createTodoApp(container) {
     </main>
   `;
   
+  // 要素の取得
   const form = container.querySelector('#todo-form');
   const input = form.querySelector('input[type="text"]');
-  const dueDateInput = form.querySelector('input[type="datetime-local"]');
+  const categorySelect = form.querySelector('select[name="category"]');
+  const tagInput = form.querySelector('input[name="tags"]');
   const todoList = container.querySelector('#todo-list');
   const searchInput = container.querySelector('input[type="search"]');
   const themeToggle = container.querySelector('.theme-toggle');
   const themeIcon = container.querySelector('.theme-icon');
   
-  // LocalStorageからデータを読み込み
-  let todos = loadFromLocalStorage();
-  let nextId = calculateNextId(todos);
+  // カテゴリー関連の要素
+  const categoryForm = container.querySelector('#category-form');
+  const categoryNameInput = categoryForm.querySelector('input[name="category-name"]');
+  const categoryColorInput = categoryForm.querySelector('input[name="category-color"]');
+  const categoryList = container.querySelector('#category-list');
+  const categoryFilter = container.querySelector('#category-filter');
+  const tagFilter = container.querySelector('#tag-filter');
+  const clearFiltersButton = container.querySelector('#clear-filters');
+  
+  // 状態管理
+  let todos = loadFromLocalStorage('todos') || [];
+  let categories = loadFromLocalStorage('categories') || [];
+  let nextTodoId = calculateNextId(todos);
+  let nextCategoryId = calculateNextId(categories);
   let editingId = null;
+  let editingCategoryId = null;
+  let editingTodoTags = null;
   let currentFilter = 'all';
   let searchQuery = '';
+  let selectedCategory = '';
+  let selectedTag = '';
   let draggedTodo = null;
   let currentTheme = 'light';
-  let currentSort = 'order';
+  let allTags = [];
+  let tagSuggestions = null;
   
   // LocalStorage関連のヘルパー関数
-  function loadFromLocalStorage() {
+  function loadFromLocalStorage(key) {
     try {
-      const saved = localStorage.getItem('todos');
+      const saved = localStorage.getItem(key);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // 既存のTODOにorderプロパティがない場合は追加
-          // createdAt, completedAtがない場合も追加
-          return parsed.map((todo, index) => ({
-            ...todo,
-            order: todo.order !== undefined ? todo.order : index,
-            createdAt: todo.createdAt || new Date().toISOString(),
-            completedAt: todo.completedAt || null,
-            dueDate: todo.dueDate || null,
-            reminderDate: todo.reminderDate || null
-          }));
+          if (key === 'todos') {
+            // 既存のTODOにorderプロパティがない場合は追加
+            return parsed.map((todo, index) => ({
+              ...todo,
+              order: todo.order !== undefined ? todo.order : index,
+              createdAt: todo.createdAt || new Date().toISOString(),
+              completedAt: todo.completedAt || null,
+              categoryId: todo.categoryId || null,
+              tags: todo.tags || []
+            }));
+          }
+          return parsed;
         }
       }
     } catch (error) {
-      console.error('Failed to load todos from localStorage:', error);
+      console.error(`Failed to load ${key} from localStorage:`, error);
     }
-    return [];
+    return null;
   }
   
-  function saveToLocalStorage() {
+  function saveToLocalStorage(key, data) {
     try {
-      localStorage.setItem('todos', JSON.stringify(todos));
+      localStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
-      console.error('Failed to save todos to localStorage:', error);
+      console.error(`Failed to save ${key} to localStorage:`, error);
     }
   }
   
-  function calculateNextId(todoList) {
-    if (todoList.length === 0) return 1;
-    const maxId = Math.max(...todoList.map(todo => todo.id || 0));
+  function calculateNextId(list) {
+    if (!list || list.length === 0) return 1;
+    const maxId = Math.max(...list.map(item => item.id || 0));
     return maxId + 1;
   }
   
@@ -175,91 +225,163 @@ function createTodoApp(container) {
     };
   }
 
-  // 日付関連のヘルパー関数
-  function formatDueDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = date - now;
-    const daysDiff = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  // カテゴリー管理関数
+  function renderCategories() {
+    categoryList.innerHTML = '';
+    categorySelect.innerHTML = '<option value="">カテゴリーなし</option>';
+    categoryFilter.innerHTML = '<option value="">全てのカテゴリー</option>';
     
-    // 相対的な時間表示
-    if (daysDiff < -1) {
-      return `期限切れ（${Math.abs(daysDiff)}日前）`;
-    } else if (daysDiff === -1) {
-      return '期限切れ（昨日）';
-    } else if (daysDiff === 0) {
-      return '今日';
-    } else if (daysDiff === 1) {
-      return '明日';
-    } else if (daysDiff <= 7) {
-      return `${daysDiff}日後`;
-    } else {
-      // 日付フォーマット
-      return date.toLocaleDateString('ja-JP', {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric'
+    categories.forEach(category => {
+      // カテゴリーリストの表示
+      const li = document.createElement('li');
+      li.className = 'category-item';
+      
+      if (editingCategoryId === category.id) {
+        // 編集モード
+        const editInput = document.createElement('input');
+        editInput.type = 'text';
+        editInput.value = category.name;
+        
+        const finishEdit = (save) => {
+          if (save && editInput.value.trim()) {
+            category.name = editInput.value.trim();
+            saveToLocalStorage('categories', categories);
+          }
+          editingCategoryId = null;
+          renderCategories();
+          render();
+        };
+        
+        editInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') finishEdit(true);
+          else if (e.key === 'Escape') finishEdit(false);
+        });
+        
+        editInput.addEventListener('blur', () => finishEdit(true));
+        
+        li.appendChild(editInput);
+        setTimeout(() => editInput.focus(), 0);
+      } else {
+        // 通常モード
+        const colorDiv = document.createElement('div');
+        colorDiv.className = 'category-color';
+        colorDiv.style.backgroundColor = category.color;
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'category-name';
+        nameSpan.textContent = category.name;
+        nameSpan.addEventListener('dblclick', () => {
+          editingCategoryId = category.id;
+          renderCategories();
+        });
+        
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'delete-category';
+        deleteButton.textContent = '削除';
+        deleteButton.addEventListener('click', () => {
+          // カテゴリーを削除し、関連するTODOのカテゴリーをクリア
+          categories = categories.filter(c => c.id !== category.id);
+          todos.forEach(todo => {
+            if (todo.categoryId === category.id) {
+              todo.categoryId = null;
+            }
+          });
+          saveToLocalStorage('categories', categories);
+          saveToLocalStorage('todos', todos);
+          renderCategories();
+          render();
+        });
+        
+        li.appendChild(colorDiv);
+        li.appendChild(nameSpan);
+        li.appendChild(deleteButton);
+      }
+      
+      categoryList.appendChild(li);
+      
+      // セレクトボックスのオプション追加
+      const option = document.createElement('option');
+      option.value = category.id;
+      option.textContent = category.name;
+      categorySelect.appendChild(option);
+      
+      const filterOption = option.cloneNode(true);
+      categoryFilter.appendChild(filterOption);
+    });
+  }
+  
+  // タグのオートコンプリート
+  function updateAllTags() {
+    const tagSet = new Set();
+    todos.forEach(todo => {
+      if (todo.tags && Array.isArray(todo.tags)) {
+        todo.tags.forEach(tag => tagSet.add(tag));
+      }
+    });
+    allTags = Array.from(tagSet).sort();
+    
+    // タグフィルターを更新
+    tagFilter.innerHTML = '<option value="">全てのタグ</option>';
+    allTags.forEach(tag => {
+      const option = document.createElement('option');
+      option.value = tag;
+      option.textContent = tag;
+      tagFilter.appendChild(option);
+    });
+  }
+  
+  function showTagSuggestions(input, value) {
+    hideTagSuggestions();
+    
+    if (!value) return;
+    
+    const matches = allTags.filter(tag => 
+      tag.toLowerCase().startsWith(value.toLowerCase())
+    );
+    
+    if (matches.length === 0) return;
+    
+    tagSuggestions = document.createElement('div');
+    tagSuggestions.className = 'tag-suggestions';
+    
+    matches.forEach(tag => {
+      const div = document.createElement('div');
+      div.className = 'tag-suggestion';
+      div.textContent = tag;
+      div.setAttribute('data-tag', tag);
+      div.addEventListener('click', () => {
+        const currentTags = input.value.trim().split(/\s+/);
+        currentTags[currentTags.length - 1] = tag;
+        input.value = currentTags.join(' ') + ' ';
+        input.focus();
+        hideTagSuggestions();
       });
-    }
-  }
-  
-  function getDueDateClass(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = date - now;
-    const hoursDiff = diff / (1000 * 60 * 60);
-    const daysDiff = diff / (1000 * 60 * 60 * 24);
+      tagSuggestions.appendChild(div);
+    });
     
-    if (diff < 0) {
-      return 'overdue';
-    } else if (hoursDiff <= 24) {
-      return 'due-soon';
-    } else if (daysDiff <= 7) {
-      return 'due-week';
+    input.parentElement.appendChild(tagSuggestions);
+  }
+  
+  function hideTagSuggestions() {
+    if (tagSuggestions) {
+      tagSuggestions.remove();
+      tagSuggestions = null;
     }
-    return '';
-  }
-  
-  function isOverdue(dateString) {
-    if (!dateString) return false;
-    return new Date(dateString) < new Date();
-  }
-  
-  function isDueToday(dateString) {
-    if (!dateString) return false;
-    const date = new Date(dateString);
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
-  }
-  
-  function isDueThisWeek(dateString) {
-    if (!dateString) return false;
-    const date = new Date(dateString);
-    const now = new Date();
-    const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    return date >= now && date <= weekFromNow;
   }
 
   // テーマ管理関数
   function initializeTheme() {
-    // LocalStorageから保存されたテーマを取得
     const savedTheme = localStorage.getItem('theme');
     
-    // window.matchMediaが利用可能かチェック（テスト環境対応）
     if (typeof window.matchMedia === 'function') {
-      // システムのテーマ設定を検出
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       
-      // テーマを決定（保存されたテーマ > システム設定 > デフォルト）
       if (savedTheme) {
         currentTheme = savedTheme;
       } else if (prefersDark) {
         currentTheme = 'dark';
       }
       
-      // システムテーマの変更を監視
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
         if (!localStorage.getItem('theme')) {
           currentTheme = e.matches ? 'dark' : 'light';
@@ -267,13 +389,11 @@ function createTodoApp(container) {
         }
       });
     } else {
-      // テスト環境の場合
       if (savedTheme) {
         currentTheme = savedTheme;
       }
     }
     
-    // テーマを適用
     applyTheme(currentTheme);
   }
   
@@ -305,7 +425,7 @@ function createTodoApp(container) {
   
   function handleDragOver(e) {
     if (e.preventDefault) {
-      e.preventDefault(); // ドロップを許可
+      e.preventDefault();
     }
     e.dataTransfer.dropEffect = 'move';
     
@@ -338,7 +458,6 @@ function createTodoApp(container) {
       const draggedId = parseInt(e.dataTransfer.getData('text/plain'));
       
       if (draggedId !== droppedId) {
-        // 並び替えを実行
         reorderTodos(draggedId, droppedId);
       }
     }
@@ -365,7 +484,6 @@ function createTodoApp(container) {
         reorderTodos(todoId, targetTodo.id, 'after');
       }
       
-      // フォーカスを維持
       setTimeout(() => {
         const newItem = container.querySelector(`[data-todo-id="${todoId}"]`);
         if (newItem) newItem.focus();
@@ -380,64 +498,50 @@ function createTodoApp(container) {
     
     if (!draggedTodo || !targetTodo) return;
     
-    // 現在の順序でソート
     const sortedTodos = [...todos].sort((a, b) => a.order - b.order);
-    
-    // ドラッグされたアイテムを除外
     const filteredTodos = sortedTodos.filter(t => t.id !== draggedId);
-    
-    // ターゲットの位置を見つける
     const targetIndex = filteredTodos.findIndex(t => t.id === targetId);
-    
-    // 新しい位置に挿入
     const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
     filteredTodos.splice(insertIndex, 0, draggedTodo);
     
-    // order値を更新
     filteredTodos.forEach((todo, index) => {
       todo.order = index;
     });
     
-    saveToLocalStorage();
+    saveToLocalStorage('todos', todos);
     render();
   }
   
   function render() {
     todoList.innerHTML = '';
     
-    // ソート処理
-    let sortedTodos = [...todos];
-    if (currentSort === 'due-date') {
-      sortedTodos.sort((a, b) => {
-        // 期限なしは最後に
-        if (!a.dueDate && !b.dueDate) return a.order - b.order;
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        // 期限ありは日付順
-        return new Date(a.dueDate) - new Date(b.dueDate);
-      });
-    } else {
-      sortedTodos.sort((a, b) => a.order - b.order);
-    }
+    const sortedTodos = [...todos].sort((a, b) => a.order - b.order);
     
-    // フィルターと検索条件に基づいてTODOを表示
     const filteredTodos = sortedTodos.filter(todo => {
       // フィルター条件
       let passesFilter = true;
       if (currentFilter === 'incomplete') passesFilter = !todo.completed;
       else if (currentFilter === 'completed') passesFilter = todo.completed;
-      else if (currentFilter === 'overdue') passesFilter = isOverdue(todo.dueDate);
-      else if (currentFilter === 'today') passesFilter = isDueToday(todo.dueDate);
-      else if (currentFilter === 'week') passesFilter = isDueThisWeek(todo.dueDate);
-      else if (currentFilter === 'no-due') passesFilter = !todo.dueDate;
       
-      // 検索条件（大文字小文字を区別しない）
+      // カテゴリーフィルター
+      let passesCategory = true;
+      if (selectedCategory) {
+        passesCategory = todo.categoryId == selectedCategory;
+      }
+      
+      // タグフィルター
+      let passesTag = true;
+      if (selectedTag) {
+        passesTag = todo.tags && todo.tags.includes(selectedTag);
+      }
+      
+      // 検索条件
       let passesSearch = true;
       if (searchQuery) {
         passesSearch = todo.text.toLowerCase().includes(searchQuery.toLowerCase());
       }
       
-      return passesFilter && passesSearch;
+      return passesFilter && passesCategory && passesTag && passesSearch;
     });
     
     filteredTodos.forEach((todo, index) => {
@@ -447,16 +551,10 @@ function createTodoApp(container) {
         li.classList.add('completed');
       }
       
-      // 期限によるクラスを追加
-      const dueDateClass = getDueDateClass(todo.dueDate);
-      if (dueDateClass) {
-        li.classList.add(dueDateClass);
-      }
-      
-      // ドラッグ&ドロップ機能の追加
+      // ドラッグ&ドロップ機能
       li.draggable = true;
       li.dataset.todoId = todo.id;
-      li.tabIndex = 0; // キーボードフォーカス可能にする
+      li.tabIndex = 0;
       
       // ドラッグイベントハンドラ
       li.addEventListener('dragstart', handleDragStart);
@@ -485,7 +583,7 @@ function createTodoApp(container) {
             const newText = editInput.value.trim();
             if (newText !== '') {
               todo.text = newText;
-              saveToLocalStorage();
+              saveToLocalStorage('todos', todos);
             }
           }
           editingId = null;
@@ -506,6 +604,38 @@ function createTodoApp(container) {
         
         li.appendChild(editInput);
         setTimeout(() => editInput.focus(), 0);
+      } else if (editingTodoTags === todo.id) {
+        // タグ編集モード
+        const tagEditInput = document.createElement('input');
+        tagEditInput.type = 'text';
+        tagEditInput.className = 'tag-edit-input';
+        tagEditInput.value = todo.tags ? todo.tags.join(' ') : '';
+        
+        const finishTagEdit = (save) => {
+          if (save) {
+            const newTags = tagEditInput.value.trim().split(/\s+/).filter(tag => tag);
+            todo.tags = newTags;
+            saveToLocalStorage('todos', todos);
+            updateAllTags();
+          }
+          editingTodoTags = null;
+          render();
+        };
+        
+        tagEditInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            finishTagEdit(true);
+          } else if (e.key === 'Escape') {
+            finishTagEdit(false);
+          }
+        });
+        
+        tagEditInput.addEventListener('blur', () => {
+          finishTagEdit(true);
+        });
+        
+        li.appendChild(tagEditInput);
+        setTimeout(() => tagEditInput.focus(), 0);
       } else {
         // 通常モード
         const checkbox = document.createElement('input');
@@ -518,7 +648,7 @@ function createTodoApp(container) {
           } else if (!todo.completed) {
             todo.completedAt = null;
           }
-          saveToLocalStorage();
+          saveToLocalStorage('todos', todos);
           render();
         });
         
@@ -540,58 +670,80 @@ function createTodoApp(container) {
           render();
         });
         
+        // カテゴリー表示
+        if (todo.categoryId) {
+          const category = categories.find(c => c.id === todo.categoryId);
+          if (category) {
+            const categorySpan = document.createElement('span');
+            categorySpan.className = 'todo-category';
+            categorySpan.textContent = category.name;
+            categorySpan.style.backgroundColor = category.color;
+            li.appendChild(categorySpan);
+          }
+        }
+        
+        // カテゴリーセレクター
+        const categorySelector = document.createElement('select');
+        categorySelector.className = 'todo-category-selector';
+        categorySelector.innerHTML = '<option value="">なし</option>';
+        categories.forEach(cat => {
+          const option = document.createElement('option');
+          option.value = cat.id;
+          option.textContent = cat.name;
+          if (todo.categoryId === cat.id) {
+            option.selected = true;
+          }
+          categorySelector.appendChild(option);
+        });
+        categorySelector.addEventListener('change', (e) => {
+          todo.categoryId = e.target.value ? parseInt(e.target.value) : null;
+          saveToLocalStorage('todos', todos);
+          render();
+        });
+        
+        // タグ表示
+        const tagsDiv = document.createElement('div');
+        tagsDiv.className = 'todo-tags';
+        if (todo.tags && todo.tags.length > 0) {
+          todo.tags.forEach(tag => {
+            const tagSpan = document.createElement('span');
+            tagSpan.className = 'todo-tag';
+            tagSpan.textContent = tag;
+            
+            const removeButton = document.createElement('button');
+            removeButton.className = 'remove-tag';
+            removeButton.textContent = '×';
+            removeButton.addEventListener('click', (e) => {
+              e.stopPropagation();
+              todo.tags = todo.tags.filter(t => t !== tag);
+              saveToLocalStorage('todos', todos);
+              updateAllTags();
+              render();
+            });
+            
+            tagSpan.appendChild(removeButton);
+            tagsDiv.appendChild(tagSpan);
+          });
+        }
+        
+        tagsDiv.addEventListener('click', () => {
+          editingTodoTags = todo.id;
+          render();
+        });
+        
         const deleteButton = document.createElement('button');
         deleteButton.className = 'delete-button';
         deleteButton.textContent = '削除';
         deleteButton.addEventListener('click', () => {
           todos = todos.filter(t => t.id !== todo.id);
-          saveToLocalStorage();
+          saveToLocalStorage('todos', todos);
+          updateAllTags();
           render();
         });
         
-        // 期限表示
-        if (todo.dueDate) {
-          const dueDateSpan = document.createElement('span');
-          dueDateSpan.className = 'due-date';
-          dueDateSpan.textContent = formatDueDate(todo.dueDate);
-          li.appendChild(dueDateSpan);
-        }
-        
-        // 期限編集ボタン
-        const editDueDateBtn = document.createElement('button');
-        editDueDateBtn.className = 'edit-due-date';
-        editDueDateBtn.textContent = todo.dueDate ? '期限変更' : '期限設定';
-        editDueDateBtn.addEventListener('click', () => {
-          const dateInput = document.createElement('input');
-          dateInput.type = 'datetime-local';
-          dateInput.value = todo.dueDate ? new Date(todo.dueDate).toISOString().slice(0, 16) : '';
-          
-          const saveBtn = document.createElement('button');
-          saveBtn.textContent = '保存';
-          saveBtn.addEventListener('click', () => {
-            todo.dueDate = dateInput.value || null;
-            saveToLocalStorage();
-            render();
-          });
-          
-          const cancelBtn = document.createElement('button');
-          cancelBtn.textContent = 'キャンセル';
-          cancelBtn.addEventListener('click', () => {
-            render();
-          });
-          
-          const editContainer = document.createElement('div');
-          editContainer.className = 'due-date-edit';
-          editContainer.appendChild(dateInput);
-          editContainer.appendChild(saveBtn);
-          editContainer.appendChild(cancelBtn);
-          
-          li.innerHTML = '';
-          li.appendChild(editContainer);
-        });
-        
         li.appendChild(label);
-        li.appendChild(editDueDateBtn);
+        li.appendChild(categorySelector);
+        li.appendChild(tagsDiv);
         li.appendChild(deleteButton);
       }
       
@@ -599,27 +751,69 @@ function createTodoApp(container) {
     });
   }
   
+  // カテゴリー追加
+  categoryForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    
+    const name = categoryNameInput.value.trim();
+    const color = categoryColorInput.value;
+    
+    if (name === '') return;
+    
+    categories.push({
+      id: nextCategoryId++,
+      name: name,
+      color: color
+    });
+    
+    saveToLocalStorage('categories', categories);
+    categoryNameInput.value = '';
+    categoryColorInput.value = '#667eea';
+    renderCategories();
+  });
+  
+  // TODO追加
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     
     const text = input.value.trim();
     if (text === '') return;
     
+    const categoryId = categorySelect.value ? parseInt(categorySelect.value) : null;
+    const tags = tagInput.value.trim().split(/\s+/).filter(tag => tag);
+    
     todos.push({
-      id: nextId++,
+      id: nextTodoId++,
       text: text,
       completed: false,
       order: todos.length,
       createdAt: new Date().toISOString(),
       completedAt: null,
-      dueDate: dueDateInput.value || null,
-      reminderDate: null
+      categoryId: categoryId,
+      tags: tags
     });
     
-    saveToLocalStorage();
+    saveToLocalStorage('todos', todos);
+    updateAllTags();
     render();
     input.value = '';
-    dueDateInput.value = '';
+    categorySelect.value = '';
+    tagInput.value = '';
+  });
+  
+  // タグ入力のオートコンプリート
+  tagInput.addEventListener('input', (e) => {
+    const value = e.target.value;
+    const lastWord = value.split(/\s+/).pop();
+    if (lastWord) {
+      showTagSuggestions(e.target, lastWord);
+    } else {
+      hideTagSuggestions();
+    }
+  });
+  
+  tagInput.addEventListener('blur', () => {
+    setTimeout(hideTagSuggestions, 200);
   });
   
   // フィルターボタンのイベント設定
@@ -629,7 +823,6 @@ function createTodoApp(container) {
     button.addEventListener('click', () => {
       currentFilter = button.getAttribute('data-filter');
       
-      // アクティブクラスを更新
       filterButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
       
@@ -640,23 +833,34 @@ function createTodoApp(container) {
   // 初期状態で全てボタンをアクティブに
   container.querySelector('[data-filter="all"]').classList.add('active');
   
-  // ソートボタンのイベント設定
-  const sortButtons = container.querySelectorAll('.sort-button');
-  
-  sortButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      currentSort = button.getAttribute('data-sort');
-      
-      // アクティブクラスを更新
-      sortButtons.forEach(btn => btn.classList.remove('active'));
-      button.classList.add('active');
-      
-      render();
-    });
+  // カテゴリーフィルター
+  categoryFilter.addEventListener('change', (e) => {
+    selectedCategory = e.target.value;
+    render();
   });
   
-  // 初期状態で追加順ボタンをアクティブに
-  container.querySelector('[data-sort="order"]').classList.add('active');
+  // タグフィルター
+  tagFilter.addEventListener('change', (e) => {
+    selectedTag = e.target.value;
+    render();
+  });
+  
+  // フィルタークリア
+  clearFiltersButton.addEventListener('click', () => {
+    selectedCategory = '';
+    selectedTag = '';
+    searchQuery = '';
+    currentFilter = 'all';
+    
+    categoryFilter.value = '';
+    tagFilter.value = '';
+    searchInput.value = '';
+    
+    filterButtons.forEach(btn => btn.classList.remove('active'));
+    container.querySelector('[data-filter="all"]').classList.add('active');
+    
+    render();
+  });
   
   // 検索入力のイベントハンドラ（デバウンス付き）
   const debouncedSearch = debounce(() => {
@@ -688,11 +892,9 @@ function createTodoApp(container) {
     button.addEventListener('click', () => {
       const targetTab = button.getAttribute('data-tab');
       
-      // タブボタンのアクティブ状態を更新
       tabButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
       
-      // タブペインの表示を切り替え
       tabPanes.forEach(pane => {
         if (pane.getAttribute('data-pane') === targetTab) {
           pane.classList.add('active');
@@ -701,7 +903,6 @@ function createTodoApp(container) {
         }
       });
       
-      // 統計タブの場合は統計を更新
       if (targetTab === 'stats') {
         updateStatistics();
       }
@@ -713,7 +914,6 @@ function createTodoApp(container) {
     const now = new Date();
     let filteredTodos = todos;
     
-    // 日付範囲でフィルタリング
     if (dateRange !== 'all') {
       const startDate = new Date();
       
@@ -753,17 +953,14 @@ function createTodoApp(container) {
     const dateRange = container.querySelector('.date-range-filter').value;
     const stats = calculateStatistics(dateRange);
     
-    // 統計値を更新
     container.querySelector('.stat-total').textContent = stats.total;
     container.querySelector('.stat-completed').textContent = stats.completed;
     container.querySelector('.stat-incomplete').textContent = stats.incomplete;
     container.querySelector('.stat-completion-rate').textContent = stats.completionRate + '%';
     
-    // ストリークを計算（簡易版）
     const streak = calculateStreak();
     container.querySelector('.stat-streak').textContent = streak + '日';
     
-    // チャートを更新
     updateDailyChart();
   }
   
@@ -772,14 +969,12 @@ function createTodoApp(container) {
     const completedTodos = todos.filter(todo => todo.completed && todo.completedAt);
     if (completedTodos.length === 0) return 0;
     
-    // 日付でグループ化
     const completionsByDate = {};
     completedTodos.forEach(todo => {
       const date = new Date(todo.completedAt).toDateString();
       completionsByDate[date] = true;
     });
     
-    // 今日から遡ってストリークを計算
     let streak = 0;
     const today = new Date();
     const checkDate = new Date(today);
@@ -802,19 +997,14 @@ function createTodoApp(container) {
     const canvas = container.querySelector('#daily-chart');
     if (!canvas) return;
     
-    // getContextが利用可能かチェック（テスト環境対応）
-    if (typeof canvas.getContext !== 'function') return;
-    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // 簡易的なチャート描画
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#667eea';
     ctx.strokeStyle = '#667eea';
     ctx.lineWidth = 2;
     
-    // 過去7日間のデータを集計
     const dailyData = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
@@ -831,7 +1021,6 @@ function createTodoApp(container) {
       dailyData.push(count);
     }
     
-    // グラフを描画
     const maxValue = Math.max(...dailyData, 1);
     const barWidth = canvas.width / 7 - 20;
     const scale = (canvas.height - 40) / maxValue;
@@ -855,13 +1044,13 @@ function createTodoApp(container) {
       exportDate: new Date().toISOString(),
       dateRange,
       statistics: stats,
-      todos: todos
+      todos: todos,
+      categories: categories
     };
     
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     
-    // URL.createObjectURLが利用可能かチェック（テスト環境対応）
-    if (typeof URL.createObjectURL === 'function') {
+    if (typeof URL !== 'undefined' && URL.createObjectURL) {
       const url = URL.createObjectURL(blob);
       
       const link = document.createElement('a');
@@ -871,10 +1060,8 @@ function createTodoApp(container) {
       
       URL.revokeObjectURL(url);
     } else {
-      // テスト環境用のフォールバック
       const link = document.createElement('a');
-      link.href = '#';
-      link.download = `todo-stats-${new Date().toISOString().split('T')[0]}.json`;
+      link.setAttribute('download', `todo-stats-${new Date().toISOString().split('T')[0]}.json`);
       link.click();
     }
   });
@@ -883,10 +1070,11 @@ function createTodoApp(container) {
   const dateRangeFilter = container.querySelector('.date-range-filter');
   dateRangeFilter.addEventListener('change', updateStatistics);
   
-  // テーマを初期化
+  // 初期化
   initializeTheme();
+  renderCategories();
+  updateAllTags();
   
-  // 初期データがある場合は表示
   if (todos.length > 0) {
     render();
   }
@@ -895,7 +1083,7 @@ function createTodoApp(container) {
     container,
     form,
     todoList,
-    render // テスト用に公開
+    render
   };
 }
 

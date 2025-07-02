@@ -36,10 +36,14 @@ describe('TODO App HTML Structure', () => {
 
     // フィルターボタンが存在すること
     const filterButtons = container.querySelectorAll('.filter-button');
-    expect(filterButtons).toHaveLength(3);
+    expect(filterButtons).toHaveLength(7);
     expect(filterButtons[0]).toHaveTextContent('全て');
     expect(filterButtons[1]).toHaveTextContent('未完了');
     expect(filterButtons[2]).toHaveTextContent('完了済み');
+    expect(filterButtons[3]).toHaveTextContent('期限切れ');
+    expect(filterButtons[4]).toHaveTextContent('今日');
+    expect(filterButtons[5]).toHaveTextContent('今週');
+    expect(filterButtons[6]).toHaveTextContent('期限なし');
 
     // TODOリスト表示エリアが存在すること
     const todoList = container.querySelector('ul#todo-list');
@@ -1357,18 +1361,29 @@ describe('TODO App Statistics', () => {
     // エクスポートボタンをクリック
     const exportBtn = container.querySelector('.export-json');
     
+    // URL.createObjectURLをモック
+    const mockUrl = 'blob:mock-url';
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = jest.fn().mockReturnValue(mockUrl);
+    URL.revokeObjectURL = jest.fn();
+    
     // ダウンロードをモック
     const mockLink = {
       click: jest.fn(),
-      setAttribute: jest.fn(),
-      style: {}
+      href: '',
+      download: ''
     };
     jest.spyOn(document, 'createElement').mockReturnValueOnce(mockLink);
     
     exportBtn.click();
 
-    expect(mockLink.setAttribute).toHaveBeenCalledWith('download', expect.stringContaining('todo-stats-'));
+    expect(mockLink.download).toContain('todo-stats-');
     expect(mockLink.click).toHaveBeenCalled();
+    
+    // モックをリストア
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
   });
 
   test('should show completion streak', () => {

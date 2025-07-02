@@ -8,7 +8,10 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },
-  "keywords": ["todo", "tdd"],
+  "keywords": [
+    "todo",
+    "tdd"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {

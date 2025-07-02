@@ -69,3 +69,74 @@ describe('TODO App HTML Structure', () => {
     expect(todoList).toHaveAttribute('aria-label', 'TODOリスト');
   });
 });
+
+describe('TODO App Functionality', () => {
+  let container;
+  let app;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+  });
+
+  test('should add a new todo when form is submitted', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 初期状態でリストは空
+    expect(todoList.children).toHaveLength(0);
+
+    // TODOテキストを入力
+    input.value = '新しいTODO';
+    
+    // フォームを送信
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // TODOがリストに追加されていること
+    expect(todoList.children).toHaveLength(1);
+    const todoItem = todoList.children[0];
+    expect(todoItem.tagName).toBe('LI');
+    expect(todoItem.textContent).toContain('新しいTODO');
+    
+    // 入力フィールドがクリアされていること
+    expect(input.value).toBe('');
+  });
+
+  test('should not add empty todo', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 空の入力で送信
+    input.value = '';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // リストに何も追加されていないこと
+    expect(todoList.children).toHaveLength(0);
+  });
+
+  test('should add multiple todos', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 複数のTODOを追加
+    const todos = ['TODO 1', 'TODO 2', 'TODO 3'];
+    todos.forEach(todoText => {
+      input.value = todoText;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 全てのTODOがリストに追加されていること
+    expect(todoList.children).toHaveLength(3);
+    todos.forEach((todoText, index) => {
+      expect(todoList.children[index].textContent).toContain(todoText);
+    });
+  });
+});

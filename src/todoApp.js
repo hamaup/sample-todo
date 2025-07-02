@@ -23,10 +23,42 @@ function createTodoApp(container) {
     </main>
   `;
   
+  const form = container.querySelector('#todo-form');
+  const input = form.querySelector('input[type="text"]');
+  const todoList = container.querySelector('#todo-list');
+  
+  let todos = [];
+  let nextId = 1;
+  
+  function render() {
+    todoList.innerHTML = '';
+    todos.forEach(todo => {
+      const li = document.createElement('li');
+      li.textContent = todo.text;
+      todoList.appendChild(li);
+    });
+  }
+  
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    
+    const text = input.value.trim();
+    if (text === '') return;
+    
+    todos.push({
+      id: nextId++,
+      text: text,
+      completed: false
+    });
+    
+    render();
+    input.value = '';
+  });
+  
   return {
     container,
-    form: container.querySelector('#todo-form'),
-    todoList: container.querySelector('#todo-list')
+    form,
+    todoList
   };
 }
 

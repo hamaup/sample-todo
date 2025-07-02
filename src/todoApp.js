@@ -29,6 +29,7 @@ function createTodoApp(container) {
   
   let todos = [];
   let nextId = 1;
+  let editingId = null;
   
   function render() {
     todoList.innerHTML = '';
@@ -38,28 +39,73 @@ function createTodoApp(container) {
         li.classList.add('completed');
       }
       
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = todo.completed;
-      checkbox.addEventListener('change', () => {
-        todo.completed = checkbox.checked;
-        render();
-      });
+      if (editingId === todo.id) {
+        // 編集モード
+        const editInput = document.createElement('input');
+        editInput.type = 'text';
+        editInput.className = 'edit-input';
+        editInput.value = todo.text;
+        
+        let isFinished = false;
+        
+        const finishEditing = (save) => {
+          if (isFinished) return;
+          isFinished = true;
+          
+          if (save) {
+            const newText = editInput.value.trim();
+            if (newText !== '') {
+              todo.text = newText;
+            }
+          }
+          editingId = null;
+          render();
+        };
+        
+        editInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            finishEditing(true);
+          } else if (e.key === 'Escape') {
+            finishEditing(false);
+          }
+        });
+        
+        editInput.addEventListener('blur', () => {
+          finishEditing(true);
+        });
+        
+        li.appendChild(editInput);
+        setTimeout(() => editInput.focus(), 0);
+      } else {
+        // 通常モード
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = todo.completed;
+        checkbox.addEventListener('change', () => {
+          todo.completed = checkbox.checked;
+          render();
+        });
+        
+        const label = document.createElement('label');
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(' ' + todo.text));
+        label.addEventListener('dblclick', () => {
+          editingId = todo.id;
+          render();
+        });
+        
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'delete-button';
+        deleteButton.textContent = '削除';
+        deleteButton.addEventListener('click', () => {
+          todos = todos.filter(t => t.id !== todo.id);
+          render();
+        });
+        
+        li.appendChild(label);
+        li.appendChild(deleteButton);
+      }
       
-      const label = document.createElement('label');
-      label.appendChild(checkbox);
-      label.appendChild(document.createTextNode(' ' + todo.text));
-      
-      const deleteButton = document.createElement('button');
-      deleteButton.className = 'delete-button';
-      deleteButton.textContent = '削除';
-      deleteButton.addEventListener('click', () => {
-        todos = todos.filter(t => t.id !== todo.id);
-        render();
-      });
-      
-      li.appendChild(label);
-      li.appendChild(deleteButton);
       todoList.appendChild(li);
     });
   }

@@ -195,4 +195,47 @@ describe('TODO App Functionality', () => {
       expect(checkbox).toBeInTheDocument();
     });
   });
+
+  test('should delete todo when delete button is clicked', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを3つ追加
+    ['TODO 1', 'TODO 2', 'TODO 3'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    expect(todoList.children).toHaveLength(3);
+
+    // 2番目のTODOを削除
+    const deleteButton = todoList.children[1].querySelector('.delete-button');
+    deleteButton.click();
+
+    // TODOが2つになっていること
+    expect(todoList.children).toHaveLength(2);
+    expect(todoList.children[0].textContent).toContain('TODO 1');
+    expect(todoList.children[1].textContent).toContain('TODO 3');
+  });
+
+  test('should display delete button for each todo item', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 複数のTODOを追加
+    ['TODO 1', 'TODO 2'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 各TODOアイテムに削除ボタンがあること
+    const todoItems = todoList.querySelectorAll('li');
+    todoItems.forEach(item => {
+      const deleteButton = item.querySelector('.delete-button');
+      expect(deleteButton).toBeInTheDocument();
+      expect(deleteButton.textContent).toBe('削除');
+    });
+  });
 });

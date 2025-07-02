@@ -1,3 +1,25 @@
+## Linear × GitHub × Claude Code 統合ワークフロー
+
+### 開発フロー
+1. **あなたがタスクを指示** → 私（Claude）が Linear Issue を自動作成
+2. **Issue からブランチ作成** → TDD で実装
+3. **PR 作成** → CI/CD 実行
+4. **マージ** → Linear ステータス自動更新
+
+### 役割分担
+- **あなた**: タスク指示、最終承認
+- **私（Claude）**: Issue 作成、実装、PR 作成
+- **Linear**: タスク管理、進捗可視化
+- **GitHub**: コード管理、CI/CD
+
+### コマンド例
+```bash
+# あなた: 「TODOの削除機能を追加して」
+# 私: Linear Issue 作成 → ブランチ作成 → TDD実装 → PR作成
+```
+
+---
+
 ## 【MUST GLOBAL】Gemini 活用（プロジェクトの CLAUDE.md より優先）
 
 ### 三位一体の開発原則

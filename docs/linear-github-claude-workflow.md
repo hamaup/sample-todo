@@ -4,16 +4,17 @@
 
 | 役割 | 担当 | 主な責務 | 使用ツール |
 |------|------|----------|------------|
-| **プロダクトオーナー** | あなた（人間） | • 要件定義と優先順位決定<br>• 最終的な品質承認<br>• リリース判断 | Linear, GitHub |
+| **プロダクトオーナー** | あなた（人間） | • タスクの指示と方向性決定<br>• 最終的な品質承認<br>• リリース判断 | チャット, Linear |
 | **タスク管理システム** | Linear | • Issue/タスクの一元管理<br>• ステータスの自動追跡<br>• プロジェクト進捗の可視化 | Linear App |
-| **開発実行者** | Claude Code（私） | • テスト作成<br>• 機能実装<br>• リファクタリング<br>• PR作成 | VS Code, Git, npm |
+| **開発実行者** | Claude Code（私） | • Linear Issue作成<br>• テスト作成<br>• 機能実装<br>• リファクタリング<br>• PR作成 | VS Code, Git, npm, Linear API |
 | **コード管理** | GitHub | • ソースコード管理<br>• PR/レビュープロセス<br>• CI/CD実行 | GitHub Actions |
 
 ## 2. 開発サイクル概要
 
 ```mermaid
 graph TD
-    A[1. Linear Issue作成] -->|⌘+Shift+.| B[2. ブランチ名コピー]
+    A0[0. タスク指示] --> A[1. Linear Issue作成]
+    A -->|⌘+Shift+.| B[2. ブランチ名コピー]
     B --> C[3. ブランチ作成]
     C --> D[4. TDD実装]
     D --> E[5. PR作成]
@@ -23,6 +24,7 @@ graph TD
     G -->|修正要望| D
     H --> I[9. Linear自動更新]
     
+    style A0 fill:#ff9,stroke:#333,stroke-width:4px
     style A fill:#f9f,stroke:#333,stroke-width:4px
     style I fill:#9f9,stroke:#333,stroke-width:4px
 ```
@@ -30,9 +32,10 @@ graph TD
 ## 3. 詳細ワークフロー
 
 ### フェーズ1: 計画（Linear）
-**担当**: あなた（人間）
-- Linear で新しい Issue を作成
-- 要件、受け入れ基準を記載
+**担当**: あなた（人間）→ Claude Code（私）
+- あなたがタスクを指示
+- Claude Code が Linear Issue を自動作成
+- 要件、受け入れ基準を整理して記載
 - 優先度とラベルを設定
 
 ### フェーズ2: 開発準備（Linear → GitHub）

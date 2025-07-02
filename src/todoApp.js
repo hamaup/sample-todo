@@ -133,9 +133,4 @@ function createTodoApp(container) {
   };
 }
 
-function addTodo(text) {
-  // 後で実装
-  return { text, completed: false };
-}
-
-module.exports = { createTodoApp, addTodo };
+module.exports = { createTodoApp };

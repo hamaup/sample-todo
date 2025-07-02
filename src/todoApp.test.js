@@ -1,4 +1,4 @@
-const { createTodoApp, addTodo } = require('./todoApp');
+const { createTodoApp } = require('./todoApp');
 
 describe('TODO App HTML Structure', () => {
   let container;

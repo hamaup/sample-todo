@@ -63,7 +63,7 @@ describe('TODO App HTML Structure', () => {
     const app = createTodoApp(container);
     
     // フォームのラベル
-    const input = container.querySelector('input[type="text"]');
+    const input = container.querySelector('#todo-form input[type="text"]');
     expect(input).toHaveAttribute('aria-label', 'TODO入力');
     
     // リストのaria-label

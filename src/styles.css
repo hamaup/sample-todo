@@ -21,10 +21,11 @@
   --text-disabled: #90a4ae;
   
   /* ボーダーとシャドウ */
-  --border-color: rgba(0, 0, 0, 0.06);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.12);
+  --border-color: rgba(0, 0, 0, 0.12);
+  --border-light: rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.16);
   
   /* アニメーション */
   --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -131,8 +132,8 @@ main::before {
 #todo-form input[type="text"] {
   flex: 1;
   padding: 14px 20px;
-  border: 2px solid transparent;
-  background: rgba(255, 255, 255, 0.7);
+  border: 2px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 12px;
   font-size: 16px;
   transition: all var(--transition-base);
@@ -197,12 +198,13 @@ nav {
 .filter-button {
   flex: 1;
   padding: 10px 20px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.8);
+  border: 2px solid var(--border-color);
   border-radius: 10px;
   cursor: pointer;
   font-size: 15px;
   font-weight: 500;
+  color: var(--text-primary);
   transition: all var(--transition-base);
   position: relative;
   overflow: hidden;
@@ -220,9 +222,10 @@ nav {
 }
 
 .filter-button:hover {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--primary-color);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .filter-button:hover::before {
@@ -248,13 +251,13 @@ nav {
 #todo-list li {
   padding: 16px;
   margin-bottom: 12px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.8);
   border-radius: 12px;
   transition: all var(--transition-base);
   display: flex;
   align-items: center;
   gap: 12px;
-  border: 1px solid var(--border-color);
+  border: 2px solid var(--border-light);
   position: relative;
   overflow: hidden;
 }
@@ -271,7 +274,8 @@ nav {
 }
 
 #todo-list li:hover {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--border-color);
   transform: translateX(4px);
   box-shadow: var(--shadow-md);
 }
@@ -295,12 +299,13 @@ nav {
   appearance: none;
   width: 22px;
   height: 22px;
-  border: 2px solid var(--primary-color);
+  border: 3px solid var(--primary-color);
   border-radius: 6px;
   cursor: pointer;
   transition: all var(--transition-fast);
   position: relative;
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 #todo-list input[type="checkbox"]:checked {
@@ -339,13 +344,13 @@ nav {
 /* 削除ボタン */
 .delete-button {
   padding: 8px 16px;
-  background: transparent;
+  background: rgba(255, 82, 82, 0.1);
   color: var(--danger-color);
   border: 2px solid var(--danger-color);
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   transition: all var(--transition-base);
   position: relative;
   z-index: 1;

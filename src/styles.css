@@ -141,3 +141,25 @@ nav {
 #todo-list label {
   flex: 1;
 }
+
+.edit-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #4CAF50;
+  border-radius: 4px;
+  font-size: 16px;
+  font-family: inherit;
+  outline: none;
+  background-color: #f9f9f9;
+}
+
+#todo-list label {
+  cursor: pointer;
+  transition: background-color 0.2s;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+#todo-list label:hover {
+  background-color: #f0f0f0;
+}

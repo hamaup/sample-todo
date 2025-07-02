@@ -1,4 +1,4 @@
-const { createTodoApp, addTodo } = require('./todoApp');
+const { createTodoApp } = require('./todoApp');
 
 describe('TODO App HTML Structure', () => {
   let container;
@@ -237,5 +237,91 @@ describe('TODO App Functionality', () => {
       expect(deleteButton).toBeInTheDocument();
       expect(deleteButton.textContent).toBe('削除');
     });
+  });
+
+  test('should edit todo when double clicked', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = '編集前のTODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    let todoItem = todoList.children[0];
+    const label = todoItem.querySelector('label');
+    
+    // ダブルクリックで編集モードに
+    label.dispatchEvent(new Event('dblclick', { bubbles: true }));
+
+    // 再レンダリング後の要素を取得
+    todoItem = todoList.children[0];
+    const editInput = todoItem.querySelector('.edit-input');
+    expect(editInput).toBeInTheDocument();
+    expect(editInput.value).toBe('編集前のTODO');
+
+    // 新しいテキストを入力してEnterキーで保存
+    editInput.value = '編集後のTODO';
+    editInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    // 編集が反映されていること
+    expect(todoList.children[0].textContent).toContain('編集後のTODO');
+    expect(todoList.children[0].querySelector('.edit-input')).not.toBeInTheDocument();
+  });
+
+  test('should cancel edit when escape key is pressed', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = '元のTODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    let todoItem = todoList.children[0];
+    const label = todoItem.querySelector('label');
+    
+    // ダブルクリックで編集モードに
+    label.dispatchEvent(new Event('dblclick', { bubbles: true }));
+
+    // 再レンダリング後の要素を取得
+    todoItem = todoList.children[0];
+    const editInput = todoItem.querySelector('.edit-input');
+    editInput.value = '変更されたTODO';
+    
+    // Escapeキーでキャンセル
+    editInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    // 元のテキストのままであること
+    expect(todoList.children[0].textContent).toContain('元のTODO');
+    expect(todoList.children[0].querySelector('.edit-input')).not.toBeInTheDocument();
+  });
+
+  test('should not save empty todo when editing', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = '空にできないTODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    let todoItem = todoList.children[0];
+    const label = todoItem.querySelector('label');
+    
+    // ダブルクリックで編集モードに
+    label.dispatchEvent(new Event('dblclick', { bubbles: true }));
+
+    // 再レンダリング後の要素を取得
+    todoItem = todoList.children[0];
+    const editInput = todoItem.querySelector('.edit-input');
+    editInput.value = '';
+    
+    // 空文字でEnterキーを押す
+    editInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    // 元のテキストのままであること
+    expect(todoList.children[0].textContent).toContain('空にできないTODO');
+    expect(todoList.children[0].querySelector('.edit-input')).not.toBeInTheDocument();
   });
 });

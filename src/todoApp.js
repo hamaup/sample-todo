@@ -1,6 +1,5 @@
 function createTodoApp(container) {
   container.innerHTML = `
-    <a href="#main-content" class="skip-link">メインコンテンツにスキップ</a>
     <header>
       <h1>TODOアプリ</h1>
       <button class="theme-toggle" aria-label="テーマを切り替え" title="ダークモード切り替え">
@@ -37,7 +36,7 @@ function createTodoApp(container) {
             <button class="filter-button" data-filter="all">全て</button>
             <button class="filter-button" data-filter="incomplete">未完了</button>
             <button class="filter-button" data-filter="completed">完了済み</button>
-            <button class="selection-mode-toggle">選択</button>
+            <button class="selection-mode-toggle">複数選択モード</button>
           </nav>
           
           <div class="bulk-selection-header" style="display: none;">
@@ -269,10 +268,16 @@ function createTodoApp(container) {
   
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
-    themeToggle.setAttribute('aria-label', 
-      theme === 'dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え'
-    );
+    const themeIcon = container.querySelector('.theme-icon');
+    const themeToggle = container.querySelector('.theme-toggle');
+    if (themeIcon) {
+      themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+    }
+    if (themeToggle) {
+      themeToggle.setAttribute('aria-label', 
+        theme === 'dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え'
+      );
+    }
   }
   
   function toggleTheme() {
@@ -384,11 +389,11 @@ function createTodoApp(container) {
     const bulkActionsToolbar = container.querySelector('.bulk-actions-toolbar');
     
     if (isSelectionMode) {
-      selectionModeButton.textContent = '完了';
+      selectionModeButton.textContent = '選択を終了';
       selectionModeButton.classList.add('active');
       bulkSelectionHeader.style.display = 'block';
     } else {
-      selectionModeButton.textContent = '選択';
+      selectionModeButton.textContent = '複数選択モード';
       selectionModeButton.classList.remove('active');
       bulkSelectionHeader.style.display = 'none';
       bulkActionsToolbar.style.display = 'none';
@@ -1051,7 +1056,16 @@ function createTodoApp(container) {
     const file = fileInput.files[0];
     
     if (!file) {
-      alert('インポートするファイルを選択してください。');
+      if (typeof window.alert === 'function') {
+        window.alert('インポートするファイルを選択してください。');
+      }
+      return;
+    }
+    
+    if (typeof FileReader === 'undefined') {
+      if (typeof window.alert === 'function') {
+        window.alert('このブラウザはファイルのインポートに対応していません。');
+      }
       return;
     }
     
@@ -1115,14 +1129,20 @@ function createTodoApp(container) {
         const todosTab = container.querySelector('[data-tab="todos"]');
         todosTab.click();
         
-        alert(`${importedTodos.length}個のTODOをインポートしました。`);
+        if (typeof window.alert === 'function') {
+          window.alert(`${importedTodos.length}個のTODOをインポートしました。`);
+        }
         
       } catch (error) {
         console.error('Import error:', error);
         if (file && file.name && file.name.endsWith('.csv')) {
-          alert('CSVファイルの形式が正しくありません。正しいヘッダーと形式で作成してください。');
+          if (typeof window.alert === 'function') {
+            window.alert('CSVファイルの形式が正しくありません。正しいヘッダーと形式で作成してください。');
+          }
         } else {
-          alert('ファイルの形式が正しくありません。有効なJSONまたはCSVファイルを選択してください。');
+          if (typeof window.alert === 'function') {
+            window.alert('ファイルの形式が正しくありません。有効なJSONまたはCSVファイルを選択してください。');
+          }
         }
       }
     });

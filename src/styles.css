@@ -438,6 +438,64 @@ nav {
   }
 }
 
+/* 検索コンテナ */
+.search-container {
+  margin: 1.5rem 0;
+  position: relative;
+  z-index: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  transition: all var(--transition-base);
+  font-family: inherit;
+  box-shadow: var(--shadow-sm);
+}
+
+.search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.search-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--secondary-color);
+  box-shadow: 0 0 0 4px rgba(83, 109, 254, 0.1), var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* 検索ハイライト */
+mark {
+  background: linear-gradient(135deg, rgba(252, 211, 77, 0.3) 0%, rgba(255, 167, 38, 0.3) 100%);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(252, 211, 77, 0.2);
+}
+
+/* TODOアイテムのアニメーション */
+#todo-list li {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* プリファレンスモーション対応 */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -506,3 +506,61 @@ mark {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ドラッグ&ドロップのスタイル */
+.todo-item {
+  cursor: grab;
+  transition: all var(--transition-base);
+}
+
+.todo-item:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.todo-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  transform: scale(0.95);
+  box-shadow: none;
+}
+
+.todo-item.drag-over {
+  background: rgba(0, 191, 165, 0.1);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(0, 191, 165, 0.2);
+  transform: scale(1.02);
+}
+
+/* ドラッグ中のゴーストイメージ */
+.todo-item.dragging::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 191, 165, 0.1);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+/* キーボード操作時の視覚的フィードバック */
+.todo-item:focus:active {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 191, 165, 0.3);
+}
+
+/* タッチデバイス用のスタイル */
+@media (hover: none) and (pointer: coarse) {
+  .todo-item {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .todo-item:active {
+    transform: scale(0.98);
+    opacity: 0.8;
+  }
+}

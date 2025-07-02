@@ -979,3 +979,333 @@ describe('Search Functionality', () => {
     }, 400);
   }, 10000);
 });
+
+describe('Drag and Drop Functionality', () => {
+  let container;
+  let app;
+
+  beforeEach(() => {
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createTodoApp(container);
+
+    // DragEventのモック実装
+    global.DragEvent = class DragEvent extends Event {
+      constructor(type, eventInitDict) {
+        super(type, eventInitDict);
+        this.dataTransfer = eventInitDict?.dataTransfer || {
+          setData: jest.fn(),
+          getData: jest.fn(),
+          effectAllowed: null,
+          dropEffect: null
+        };
+      }
+    };
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    localStorage.clear();
+  });
+
+  test('should assign order property to new todos', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+
+    // 複数のTODOを追加
+    ['TODO 1', 'TODO 2', 'TODO 3'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // LocalStorageから保存されたデータを確認
+    const saved = JSON.parse(localStorage.getItem('todos'));
+    expect(saved).toHaveLength(3);
+    expect(saved[0]).toHaveProperty('order', 0);
+    expect(saved[1]).toHaveProperty('order', 1);
+    expect(saved[2]).toHaveProperty('order', 2);
+  });
+
+  test('should display todos in order property sequence', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    ['First', 'Second', 'Third'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 表示順序が正しいことを確認
+    expect(todoList.children).toHaveLength(3);
+    expect(todoList.children[0].textContent).toContain('First');
+    expect(todoList.children[1].textContent).toContain('Second');
+    expect(todoList.children[2].textContent).toContain('Third');
+  });
+
+  test('should make todo items draggable', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = 'Draggable TODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    const todoItem = todoList.children[0];
+    expect(todoItem).toHaveAttribute('draggable', 'true');
+    expect(todoItem).toHaveClass('todo-item');
+    expect(todoItem).toHaveAttribute('data-todo-id');
+    expect(todoItem.tabIndex).toBe(0); // キーボードフォーカス可能
+  });
+
+  test('should handle drag start event', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = 'Drag start test';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    const todoItem = todoList.children[0];
+    const dragStartEvent = new DragEvent('dragstart', {
+      dataTransfer: {
+        setData: jest.fn(),
+        getData: jest.fn(),
+        effectAllowed: null,
+        dropEffect: null
+      }
+    });
+
+    // ドラッグ開始イベントを発火
+    todoItem.dispatchEvent(dragStartEvent);
+
+    // draggingクラスが追加されること
+    expect(todoItem).toHaveClass('dragging');
+    // dataTransfer.setDataが呼ばれること
+    expect(dragStartEvent.dataTransfer.setData).toHaveBeenCalled();
+  });
+
+  test('should handle drag end event', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = 'Drag end test';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    const todoItem = todoList.children[0];
+    
+    // ドラッグ開始してクラスを追加
+    todoItem.classList.add('dragging');
+    
+    const dragEndEvent = new DragEvent('dragend');
+    todoItem.dispatchEvent(dragEndEvent);
+
+    // draggingクラスが削除されること
+    expect(todoItem).not.toHaveClass('dragging');
+  });
+
+  test('should handle drag over event', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 複数のTODOを追加
+    ['TODO 1', 'TODO 2'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    const targetItem = todoList.children[1];
+    const dragOverEvent = new DragEvent('dragover', {
+      dataTransfer: {
+        setData: jest.fn(),
+        getData: jest.fn(),
+        effectAllowed: null,
+        dropEffect: null
+      }
+    });
+
+    // preventDefault のモック
+    dragOverEvent.preventDefault = jest.fn();
+
+    targetItem.dispatchEvent(dragOverEvent);
+
+    // preventDefaultが呼ばれること
+    expect(dragOverEvent.preventDefault).toHaveBeenCalled();
+    // drag-overクラスが追加されること
+    expect(targetItem).toHaveClass('drag-over');
+  });
+
+  test('should reorder todos when dropped', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 3つのTODOを追加
+    ['First', 'Second', 'Third'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 最初のアイテムを3番目の位置にドロップ
+    const draggedItem = todoList.children[0];
+    const targetItem = todoList.children[2];
+    
+    const draggedId = draggedItem.getAttribute('data-todo-id');
+    
+    const dropEvent = new DragEvent('drop', {
+      dataTransfer: {
+        getData: jest.fn().mockReturnValue(draggedId),
+        setData: jest.fn(),
+        effectAllowed: null,
+        dropEffect: null
+      }
+    });
+    
+    dropEvent.preventDefault = jest.fn();
+    dropEvent.stopPropagation = jest.fn();
+
+    targetItem.dispatchEvent(dropEvent);
+
+    // 並び順が変更されていることを確認
+    const saved = JSON.parse(localStorage.getItem('todos'));
+    const sortedTodos = saved.sort((a, b) => a.order - b.order);
+    
+    expect(sortedTodos[0].text).toBe('Second');
+    expect(sortedTodos[1].text).toBe('Third');
+    expect(sortedTodos[2].text).toBe('First');
+  });
+
+  test('should support keyboard reordering with Shift+Arrow keys', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 3つのTODOを追加
+    ['First', 'Second', 'Third'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 2番目のアイテムを上に移動（Shift + ArrowUp）
+    const secondItem = todoList.children[1];
+    const keyEvent = new KeyboardEvent('keydown', {
+      key: 'ArrowUp',
+      shiftKey: true,
+      bubbles: true
+    });
+    
+    keyEvent.preventDefault = jest.fn();
+    secondItem.dispatchEvent(keyEvent);
+
+    // preventDefaultが呼ばれること
+    expect(keyEvent.preventDefault).toHaveBeenCalled();
+    
+    // 並び順が変更されていることを確認
+    const saved = JSON.parse(localStorage.getItem('todos'));
+    const sortedTodos = saved.sort((a, b) => a.order - b.order);
+    
+    expect(sortedTodos[0].text).toBe('Second');
+    expect(sortedTodos[1].text).toBe('First');
+    expect(sortedTodos[2].text).toBe('Third');
+  });
+
+  test('should maintain focus after keyboard reordering', (done) => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    ['First', 'Second'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    const secondItem = todoList.children[1];
+    const todoId = secondItem.getAttribute('data-todo-id');
+    
+    // フォーカスを設定
+    secondItem.focus();
+    
+    const keyEvent = new KeyboardEvent('keydown', {
+      key: 'ArrowUp',
+      shiftKey: true,
+      bubbles: true
+    });
+    
+    secondItem.dispatchEvent(keyEvent);
+
+    // 非同期でフォーカスが移動することを確認
+    setTimeout(() => {
+      const movedItem = container.querySelector(`[data-todo-id="${todoId}"]`);
+      expect(document.activeElement).toBe(movedItem);
+      done();
+    }, 10);
+  });
+
+  test('should not reorder at boundaries', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 2つのTODOを追加
+    ['First', 'Second'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 最初のアイテムをさらに上に移動しようとする
+    const firstItem = todoList.children[0];
+    const keyEvent = new KeyboardEvent('keydown', {
+      key: 'ArrowUp',
+      shiftKey: true,
+      bubbles: true
+    });
+    
+    firstItem.dispatchEvent(keyEvent);
+
+    // 順序が変わらないことを確認
+    const saved = JSON.parse(localStorage.getItem('todos'));
+    const sortedTodos = saved.sort((a, b) => a.order - b.order);
+    
+    expect(sortedTodos[0].text).toBe('First');
+    expect(sortedTodos[1].text).toBe('Second');
+  });
+
+  test('should preserve other properties when reordering', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    ['TODO 1', 'TODO 2'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 最初のTODOを完了状態にする
+    const checkbox = todoList.children[0].querySelector('input[type="checkbox"]');
+    checkbox.click();
+
+    // 2番目のアイテムを上に移動
+    const secondItem = todoList.children[1];
+    const keyEvent = new KeyboardEvent('keydown', {
+      key: 'ArrowUp',
+      shiftKey: true,
+      bubbles: true
+    });
+    
+    secondItem.dispatchEvent(keyEvent);
+
+    // 完了状態が保持されていることを確認
+    const saved = JSON.parse(localStorage.getItem('todos'));
+    const completedTodo = saved.find(todo => todo.completed === true);
+    expect(completedTodo.text).toBe('TODO 1');
+  });
+});

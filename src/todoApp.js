@@ -1,12 +1,13 @@
 function createTodoApp(container) {
   container.innerHTML = `
+    <a href="#main-content" class="skip-link">メインコンテンツにスキップ</a>
     <header>
       <h1>TODOアプリ</h1>
       <button class="theme-toggle" aria-label="テーマを切り替え" title="ダークモード切り替え">
         <span class="theme-icon">🌙</span>
       </button>
     </header>
-    <main>
+    <main id="main-content">
       <nav class="tab-navigation">
         <button class="tab-button active" data-tab="todos">TODO</button>
         <button class="tab-button" data-tab="stats">統計</button>
@@ -36,9 +37,25 @@ function createTodoApp(container) {
             <button class="filter-button" data-filter="all">全て</button>
             <button class="filter-button" data-filter="incomplete">未完了</button>
             <button class="filter-button" data-filter="completed">完了済み</button>
+            <button class="selection-mode-toggle">選択</button>
           </nav>
           
+          <div class="bulk-selection-header" style="display: none;">
+            <label class="select-all-container">
+              <input type="checkbox" class="select-all-checkbox" aria-label="全て選択">
+              <span>全て選択</span>
+            </label>
+          </div>
+          
+          <div class="bulk-actions-toolbar" style="display: none;">
+            <button class="bulk-complete">一括完了</button>
+            <button class="bulk-uncomplete">一括未完了</button>
+            <button class="bulk-delete">一括削除</button>
+            <span class="selected-count">0個選択中</span>
+          </div>
+          
           <ul id="todo-list" aria-label="TODOリスト"></ul>
+          <div id="status-message" class="sr-only" aria-live="polite" aria-atomic="true"></div>
         </div>
         
         <div class="tab-pane" data-pane="stats">
@@ -50,7 +67,19 @@ function createTodoApp(container) {
                 <option value="month">今月</option>
                 <option value="all" selected>全期間</option>
               </select>
-              <button class="export-json">JSONエクスポート</button>
+              <div class="export-buttons">
+                <button class="export-json">JSONエクスポート</button>
+                <button class="export-csv">CSVエクスポート</button>
+              </div>
+            </div>
+            
+            <div class="import-section">
+              <h3>データインポート</h3>
+              <div class="import-controls">
+                <input type="file" class="import-file-input" accept=".json,.csv" aria-label="インポートファイル選択">
+                <button class="import-button">インポート</button>
+              </div>
+              <p class="import-help">JSON形式またはCSV形式のファイルをインポートできます。</p>
             </div>
             
             <div class="stats-summary">
@@ -103,6 +132,15 @@ function createTodoApp(container) {
   let draggedTodo = null;
   let currentTheme = 'light';
   
+  // 一括操作関連の変数
+  let isSelectionMode = false;
+  let selectedTodos = new Set();
+  let lastSelectedId = null;
+  
+  // コメント機能関連の変数
+  let comments = loadCommentsFromLocalStorage();
+  let nextCommentId = calculateNextCommentId(comments);
+  
   // LocalStorage関連のヘルパー関数
   function loadFromLocalStorage() {
     try {
@@ -138,6 +176,43 @@ function createTodoApp(container) {
     if (todoList.length === 0) return 1;
     const maxId = Math.max(...todoList.map(todo => todo.id || 0));
     return maxId + 1;
+  }
+  
+  // コメント関連のヘルパー関数
+  function loadCommentsFromLocalStorage() {
+    try {
+      const saved = localStorage.getItem('comments');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load comments from localStorage:', error);
+    }
+    return [];
+  }
+  
+  function saveCommentsToLocalStorage() {
+    try {
+      localStorage.setItem('comments', JSON.stringify(comments));
+    } catch (error) {
+      console.error('Failed to save comments to localStorage:', error);
+    }
+  }
+  
+  function calculateNextCommentId(commentList) {
+    if (commentList.length === 0) return 1;
+    const maxId = Math.max(...commentList.map(comment => {
+      const idNum = parseInt(comment.id.replace('comment-', ''), 10);
+      return isNaN(idNum) ? 0 : idNum;
+    }));
+    return maxId + 1;
+  }
+  
+  function getCommentsForTodo(todoId) {
+    return comments.filter(comment => comment.todoId === todoId);
   }
   
   function escapeRegExp(string) {
@@ -285,9 +360,158 @@ function createTodoApp(container) {
         const newItem = container.querySelector(`[data-todo-id="${todoId}"]`);
         if (newItem) newItem.focus();
       }, 0);
+    } else if (isSelectionMode && e.key === ' ') {
+      e.preventDefault();
+      const todoId = parseInt(e.target.dataset.todoId);
+      if (todoId) {
+        toggleTodoSelection(todoId);
+      }
     }
   }
   
+  // 一括操作関連の関数
+  function toggleSelectionMode() {
+    isSelectionMode = !isSelectionMode;
+    selectedTodos.clear();
+    lastSelectedId = null;
+    
+    const selectionModeButton = container.querySelector('.selection-mode-toggle');
+    const bulkSelectionHeader = container.querySelector('.bulk-selection-header');
+    const bulkActionsToolbar = container.querySelector('.bulk-actions-toolbar');
+    
+    if (isSelectionMode) {
+      selectionModeButton.textContent = '完了';
+      selectionModeButton.classList.add('active');
+      bulkSelectionHeader.style.display = 'block';
+    } else {
+      selectionModeButton.textContent = '選択';
+      selectionModeButton.classList.remove('active');
+      bulkSelectionHeader.style.display = 'none';
+      bulkActionsToolbar.style.display = 'none';
+    }
+    
+    render();
+  }
+  
+  function toggleTodoSelection(todoId, isShiftClick = false) {
+    if (isShiftClick && lastSelectedId) {
+      // 範囲選択の実装
+      selectRange(lastSelectedId, todoId);
+    } else {
+      // 単一選択/選択解除
+      if (selectedTodos.has(todoId)) {
+        selectedTodos.delete(todoId);
+      } else {
+        selectedTodos.add(todoId);
+        lastSelectedId = todoId;
+      }
+    }
+    
+    updateBulkActionsVisibility();
+    render();
+  }
+  
+  function selectRange(startId, endId) {
+    const sortedTodos = [...todos].sort((a, b) => a.order - b.order);
+    const startIndex = sortedTodos.findIndex(t => t.id === startId);
+    const endIndex = sortedTodos.findIndex(t => t.id === endId);
+    
+    if (startIndex === -1 || endIndex === -1) return;
+    
+    const start = Math.min(startIndex, endIndex);
+    const end = Math.max(startIndex, endIndex);
+    
+    for (let i = start; i <= end; i++) {
+      selectedTodos.add(sortedTodos[i].id);
+    }
+  }
+  
+  function selectAll() {
+    const selectAllCheckbox = container.querySelector('.select-all-checkbox');
+    
+    if (selectAllCheckbox.checked) {
+      // 全選択
+      todos.forEach(todo => selectedTodos.add(todo.id));
+    } else {
+      // 全選択解除
+      selectedTodos.clear();
+    }
+    
+    updateBulkActionsVisibility();
+    render();
+  }
+  
+  function updateSelectAllState() {
+    const selectAllCheckbox = container.querySelector('.select-all-checkbox');
+    if (!selectAllCheckbox) return;
+    
+    const totalTodos = todos.length;
+    const selectedCount = selectedTodos.size;
+    
+    if (selectedCount === 0) {
+      selectAllCheckbox.checked = false;
+      selectAllCheckbox.indeterminate = false;
+    } else if (selectedCount === totalTodos) {
+      selectAllCheckbox.checked = true;
+      selectAllCheckbox.indeterminate = false;
+    } else {
+      selectAllCheckbox.checked = false;
+      selectAllCheckbox.indeterminate = true;
+    }
+  }
+  
+  function updateBulkActionsVisibility() {
+    const bulkActionsToolbar = container.querySelector('.bulk-actions-toolbar');
+    const selectedCountSpan = container.querySelector('.selected-count');
+    
+    if (selectedTodos.size > 0) {
+      bulkActionsToolbar.style.display = 'block';
+      selectedCountSpan.textContent = `${selectedTodos.size}個選択中`;
+    } else {
+      bulkActionsToolbar.style.display = 'none';
+    }
+  }
+  
+  function bulkComplete() {
+    selectedTodos.forEach(todoId => {
+      const todo = todos.find(t => t.id === todoId);
+      if (todo && !todo.completed) {
+        todo.completed = true;
+        todo.completedAt = new Date().toISOString();
+      }
+    });
+    
+    saveToLocalStorage();
+    render();
+  }
+  
+  function bulkUncomplete() {
+    selectedTodos.forEach(todoId => {
+      const todo = todos.find(t => t.id === todoId);
+      if (todo && todo.completed) {
+        todo.completed = false;
+        todo.completedAt = null;
+      }
+    });
+    
+    saveToLocalStorage();
+    render();
+  }
+  
+  function bulkDelete() {
+    const selectedCount = selectedTodos.size;
+    if (selectedCount === 0) return;
+    
+    if (confirm(`選択された${selectedCount}個のTODOを削除しますか？`)) {
+      todos = todos.filter(todo => !selectedTodos.has(todo.id));
+      selectedTodos.clear();
+      
+      saveToLocalStorage();
+      updateBulkActionsVisibility();
+      render();
+    }
+  }
+
   // TODOの並び替え関数
   function reorderTodos(draggedId, targetId, position = 'after') {
     const draggedTodo = todos.find(t => t.id === draggedId);
@@ -401,6 +625,26 @@ function createTodoApp(container) {
         setTimeout(() => editInput.focus(), 0);
       } else {
         // 通常モード
+        
+        // 選択モードの場合は選択チェックボックスを追加
+        if (isSelectionMode) {
+          const selectionCheckbox = document.createElement('input');
+          selectionCheckbox.type = 'checkbox';
+          selectionCheckbox.className = 'selection-checkbox';
+          selectionCheckbox.checked = selectedTodos.has(todo.id);
+          selectionCheckbox.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleTodoSelection(todo.id, e.shiftKey);
+          });
+          
+          // 選択状態に応じてクラスを追加
+          if (selectedTodos.has(todo.id)) {
+            li.classList.add('selected');
+          }
+          
+          li.appendChild(selectionCheckbox);
+        }
+        
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = todo.completed;
@@ -433,21 +677,67 @@ function createTodoApp(container) {
           render();
         });
         
+        // コメントボタンの作成
+        const commentButton = document.createElement('button');
+        commentButton.className = 'comment-button';
+        commentButton.textContent = '💬';
+        commentButton.setAttribute('aria-label', 'コメントを追加');
+        
+        // コメント数バッジの表示
+        const todoComments = getCommentsForTodo(todo.id);
+        const commentCount = document.createElement('span');
+        commentCount.className = 'comment-count';
+        commentCount.textContent = todoComments.length;
+        commentButton.appendChild(commentCount);
+        
+        commentButton.addEventListener('click', () => {
+          toggleCommentSection(todo.id, li);
+        });
+        
         const deleteButton = document.createElement('button');
         deleteButton.className = 'delete-button';
         deleteButton.textContent = '削除';
         deleteButton.addEventListener('click', () => {
           todos = todos.filter(t => t.id !== todo.id);
+          // TODO削除時にコメントも削除
+          comments = comments.filter(c => c.todoId !== todo.id);
           saveToLocalStorage();
+          saveCommentsToLocalStorage();
           render();
         });
         
         li.appendChild(label);
+        li.appendChild(commentButton);
         li.appendChild(deleteButton);
       }
       
       todoList.appendChild(li);
     });
+    
+    // アクセシビリティ: ライブリージョンの更新
+    updateStatusMessage(filteredTodos.length, todos.length);
+    
+    // 選択モードの場合は全選択状態を更新
+    if (isSelectionMode) {
+      updateSelectAllState();
+    }
+  }
+  
+  // ライブリージョンの更新関数
+  function updateStatusMessage(displayedCount, totalCount) {
+    const statusElement = container.querySelector('#status-message');
+    if (statusElement) {
+      let message = '';
+      if (searchQuery) {
+        message = `検索結果: ${displayedCount}件のTODOが見つかりました`;
+      } else if (currentFilter !== 'all') {
+        const filterName = currentFilter === 'completed' ? '完了済み' : '未完了';
+        message = `フィルター結果: ${displayedCount}件の${filterName}TODOを表示中`;
+      } else {
+        message = `${totalCount}件のTODOがあります`;
+      }
+      statusElement.textContent = message;
+    }
   }
   
   form.addEventListener('submit', (e) => {
@@ -498,13 +788,13 @@ function createTodoApp(container) {
     debouncedSearch();
   });
   
-  // キーボードショートカット（Ctrl/Cmd + F）
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-      e.preventDefault();
-      searchInput.focus();
-      searchInput.select();
-    }
+  // キーボードショートカットシステムの初期化
+  const { KeyboardShortcuts } = require('./keyboardShortcuts');
+  const keyboardShortcuts = new KeyboardShortcuts({
+    container,
+    form,
+    todoList,
+    duplicateTodo
   });
   
   // テーマトグルボタンのイベント設定
@@ -541,7 +831,9 @@ function createTodoApp(container) {
   // 統計計算関数
   function calculateStatistics(dateRange = 'all') {
     const now = new Date();
-    let filteredTodos = todos;
+    // LocalStorageから最新のデータを取得
+    const currentTodos = loadFromLocalStorage();
+    let filteredTodos = currentTodos;
     
     // 日付範囲でフィルタリング
     if (dateRange !== 'all') {
@@ -559,7 +851,7 @@ function createTodoApp(container) {
           break;
       }
       
-      filteredTodos = todos.filter(todo => {
+      filteredTodos = currentTodos.filter(todo => {
         const createdDate = new Date(todo.createdAt);
         return createdDate >= startDate;
       });
@@ -599,7 +891,8 @@ function createTodoApp(container) {
   
   // 連続完了日数を計算
   function calculateStreak() {
-    const completedTodos = todos.filter(todo => todo.completed && todo.completedAt);
+    const currentTodos = loadFromLocalStorage();
+    const completedTodos = currentTodos.filter(todo => todo.completed && todo.completedAt);
     if (completedTodos.length === 0) return 0;
     
     // 日付でグループ化
@@ -658,7 +951,8 @@ function createTodoApp(container) {
       date.setHours(0, 0, 0, 0);
       const dateStr = date.toDateString();
       
-      const count = todos.filter(todo => {
+      const currentTodos = loadFromLocalStorage();
+      const count = currentTodos.filter(todo => {
         if (!todo.completed || !todo.completedAt) return false;
         const completedDate = new Date(todo.completedAt);
         return completedDate.toDateString() === dateStr;
@@ -681,9 +975,8 @@ function createTodoApp(container) {
     });
   }
   
-  // JSONエクスポート機能
-  const exportBtn = container.querySelector('.export-json');
-  exportBtn.addEventListener('click', () => {
+  // エクスポート機能
+  function exportAsJSON() {
     const dateRange = container.querySelector('.date-range-filter').value;
     const stats = calculateStatistics(dateRange);
     
@@ -691,28 +984,203 @@ function createTodoApp(container) {
       exportDate: new Date().toISOString(),
       dateRange,
       statistics: stats,
-      todos: todos
+      todos: loadFromLocalStorage()
     };
     
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    downloadFile(blob, `todo-stats-${new Date().toISOString().split('T')[0]}.json`);
+  }
+  
+  function exportAsCSV() {
+    const currentTodos = loadFromLocalStorage();
     
+    // CSVヘッダー
+    const headers = ['ID', 'テキスト', '完了', '作成日時', '完了日時', '順序'];
+    
+    // CSVデータの生成
+    const csvRows = [headers.join(',')];
+    
+    currentTodos.forEach(todo => {
+      const row = [
+        todo.id,
+        `"${todo.text.replace(/"/g, '""')}"`, // CSVのエスケープ処理
+        todo.completed,
+        todo.createdAt || '',
+        todo.completedAt || '',
+        todo.order || 0
+      ];
+      csvRows.push(row.join(','));
+    });
+    
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    downloadFile(blob, `todo-data-${new Date().toISOString().split('T')[0]}.csv`);
+  }
+  
+  function downloadFile(blob, filename) {
     // Check if URL.createObjectURL exists (for testing environments)
     if (typeof URL !== 'undefined' && URL.createObjectURL) {
       const url = URL.createObjectURL(blob);
       
       const link = document.createElement('a');
       link.href = url;
-      link.download = `todo-stats-${new Date().toISOString().split('T')[0]}.json`;
+      link.download = filename;
       link.click();
       
       URL.revokeObjectURL(url);
     } else {
       // Fallback for test environment
       const link = document.createElement('a');
-      link.setAttribute('download', `todo-stats-${new Date().toISOString().split('T')[0]}.json`);
+      link.setAttribute('download', filename);
       link.click();
     }
-  });
+  }
+  
+  // インポート機能
+  function importData() {
+    const fileInput = container.querySelector('.import-file-input');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+      alert('インポートするファイルを選択してください。');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.addEventListener('load', (e) => {
+      try {
+        const content = e.target.result;
+        let importedTodos;
+        
+        if (file && file.name && file.name.endsWith('.json')) {
+          const data = JSON.parse(content);
+          importedTodos = data.todos || data; // 統計データまたは直接のTODO配列
+        } else if (file && file.name && file.name.endsWith('.csv')) {
+          importedTodos = parseCSV(content);
+        } else {
+          throw new Error('サポートされていないファイル形式です。');
+        }
+        
+        // データの検証
+        if (!Array.isArray(importedTodos)) {
+          throw new Error('無効なデータ形式です。');
+        }
+        
+        // 既存のTODOがある場合の処理
+        const currentTodos = loadFromLocalStorage();
+        if (currentTodos.length > 0) {
+          const shouldReplace = confirm(
+            '既存のTODOがあります。\n' +
+            'OK: 既存のデータを削除して置き換える\n' +
+            'キャンセル: 既存のデータに追加する'
+          );
+          
+          if (shouldReplace) {
+            todos = [];
+            selectedTodos.clear();
+          }
+        }
+        
+        // インポートされたTODOを追加
+        importedTodos.forEach(importedTodo => {
+          // 必要なプロパティの確認と設定
+          const newTodo = {
+            id: nextId++,
+            text: importedTodo.text || importedTodo.テキスト || 'インポートされたTODO',
+            completed: importedTodo.completed === true || importedTodo.completed === 'true' || importedTodo.完了 === 'true',
+            createdAt: importedTodo.createdAt || importedTodo.作成日時 || new Date().toISOString(),
+            completedAt: importedTodo.completedAt || importedTodo.完了日時 || null,
+            order: todos.length
+          };
+          
+          todos.push(newTodo);
+        });
+        
+        saveToLocalStorage();
+        render();
+        
+        // TODOタブに切り替え
+        const todosTab = container.querySelector('[data-tab="todos"]');
+        todosTab.click();
+        
+        alert(`${importedTodos.length}個のTODOをインポートしました。`);
+        
+      } catch (error) {
+        console.error('Import error:', error);
+        if (file && file.name && file.name.endsWith('.csv')) {
+          alert('CSVファイルの形式が正しくありません。正しいヘッダーと形式で作成してください。');
+        } else {
+          alert('ファイルの形式が正しくありません。有効なJSONまたはCSVファイルを選択してください。');
+        }
+      }
+    });
+    
+    reader.readAsText(file);
+  }
+  
+  function parseCSV(csvContent) {
+    const lines = csvContent.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      throw new Error('CSVファイルが空またはヘッダーがありません。');
+    }
+    
+    const headers = lines[0].split(',').map(h => h.trim());
+    const todos = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseCSVLine(lines[i]);
+      if (values.length === 0) continue;
+      
+      const todo = {};
+      headers.forEach((header, index) => {
+        if (values[index] !== undefined) {
+          todo[header] = values[index];
+        }
+      });
+      
+      todos.push(todo);
+    }
+    
+    return todos;
+  }
+  
+  function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++; // 次の引用符をスキップ
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    result.push(current.trim());
+    return result;
+  }
+  
+  // エクスポートボタンのイベントリスナー
+  const exportJsonBtn = container.querySelector('.export-json');
+  exportJsonBtn.addEventListener('click', exportAsJSON);
+  
+  const exportCsvBtn = container.querySelector('.export-csv');
+  exportCsvBtn.addEventListener('click', exportAsCSV);
+  
+  // インポートボタンのイベントリスナー
+  const importBtn = container.querySelector('.import-button');
+  importBtn.addEventListener('click', importData);
   
   // 日付範囲フィルターの変更イベント
   const dateRangeFilter = container.querySelector('.date-range-filter');
@@ -721,16 +1189,327 @@ function createTodoApp(container) {
   // テーマを初期化
   initializeTheme();
   
-  // 初期データがある場合は表示
-  if (todos.length > 0) {
+  // 一括操作のイベントリスナー
+  const selectionModeButton = container.querySelector('.selection-mode-toggle');
+  selectionModeButton.addEventListener('click', toggleSelectionMode);
+  
+  const selectAllCheckbox = container.querySelector('.select-all-checkbox');
+  selectAllCheckbox.addEventListener('change', selectAll);
+  
+  const bulkCompleteButton = container.querySelector('.bulk-complete');
+  bulkCompleteButton.addEventListener('click', bulkComplete);
+  
+  const bulkUncompleteButton = container.querySelector('.bulk-uncomplete');
+  bulkUncompleteButton.addEventListener('click', bulkUncomplete);
+  
+  const bulkDeleteButton = container.querySelector('.bulk-delete');
+  bulkDeleteButton.addEventListener('click', bulkDelete);
+  
+  // キーボードショートカット
+  document.addEventListener('keydown', (e) => {
+    if (isSelectionMode && e.ctrlKey && e.key === 'a') {
+      e.preventDefault();
+      selectAll();
+    }
+  });
+  
+  // TODO複製機能
+  function duplicateTodo(todoId) {
+    const originalTodo = todos.find(t => t.id === todoId);
+    if (!originalTodo) return;
+    
+    const duplicatedTodo = {
+      id: nextId++,
+      text: originalTodo.text + ' (コピー)',
+      completed: false,
+      order: todos.length,
+      createdAt: new Date().toISOString(),
+      completedAt: null
+    };
+    
+    todos.push(duplicatedTodo);
+    saveToLocalStorage();
     render();
   }
+
+  // コメント機能
+  function toggleCommentSection(todoId, todoElement) {
+    // 既存のコメントパネルがあれば削除
+    const existingPanel = todoElement.querySelector('.comment-panel');
+    if (existingPanel) {
+      existingPanel.remove();
+      return;
+    }
+    
+    // コメントパネルを作成
+    const commentPanel = createCommentSection(todoId);
+    commentPanel.classList.add('active');
+    todoElement.appendChild(commentPanel);
+  }
+  
+  function createCommentSection(todoId) {
+    // LocalStorageから最新のコメントデータを再読み込み
+    comments = loadCommentsFromLocalStorage();
+    
+    const section = document.createElement('div');
+    section.className = 'comment-panel';
+    
+    // コメント入力部分
+    const inputContainer = document.createElement('form');
+    inputContainer.className = 'comment-form';
+    
+    const commentInput = document.createElement('input');
+    commentInput.type = 'text';
+    commentInput.className = 'comment-input';
+    commentInput.placeholder = 'コメントを入力...';
+    
+    const addButton = document.createElement('button');
+    addButton.type = 'submit';
+    addButton.className = 'add-comment-button';
+    addButton.textContent = 'コメント';
+    
+    // フォームのsubmitイベントでコメント追加
+    inputContainer.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (addCommentAndUpdate(todoId, commentInput.value)) {
+        commentInput.value = '';
+        updateCommentSection(todoId, section);
+      }
+    });
+    
+    inputContainer.appendChild(commentInput);
+    inputContainer.appendChild(addButton);
+    section.appendChild(inputContainer);
+    
+    // 既存のコメントを表示
+    updateCommentSection(todoId, section);
+    
+    return section;
+  }
+  
+  function addComment(todoId, content) {
+    if (!content || content.trim() === '') {
+      return false;
+    }
+    
+    const comment = {
+      id: `comment-${nextCommentId++}`,
+      todoId: todoId,
+      content: content.trim(),
+      author: '匿名ユーザー',
+      createdAt: new Date().toISOString()
+    };
+    
+    comments.push(comment);
+    saveCommentsToLocalStorage();
+    return true;
+  }
+  
+  function addCommentAndUpdate(todoId, content) {
+    const success = addComment(todoId, content);
+    if (success) {
+      // コメント数バッジを更新するため、該当するTODOアイテムのコメントボタンを更新
+      updateCommentButtonBadge(todoId);
+    }
+    return success;
+  }
+  
+  function updateCommentButtonBadge(todoId) {
+    const todoElement = document.querySelector(`[data-todo-id="${todoId}"]`);
+    if (!todoElement) return;
+    
+    const commentButton = todoElement.querySelector('.comment-button');
+    if (!commentButton) return;
+    
+    // 既存のバッジを更新
+    let commentCount = commentButton.querySelector('.comment-count');
+    if (!commentCount) {
+      commentCount = document.createElement('span');
+      commentCount.className = 'comment-count';
+      commentButton.appendChild(commentCount);
+    }
+    
+    // 新しいコメント数を設定
+    const todoComments = getCommentsForTodo(todoId);
+    commentCount.textContent = todoComments.length;
+  }
+  
+  function updateCommentSection(todoId, section) {
+    // 既存のコメントリストを削除
+    const existingList = section.querySelector('.comment-list');
+    if (existingList) {
+      existingList.remove();
+    }
+    
+    const todoComments = getCommentsForTodo(todoId);
+    if (todoComments.length === 0) {
+      return;
+    }
+    
+    // コメントリストを作成
+    const commentList = document.createElement('div');
+    commentList.className = 'comment-list';
+    
+    todoComments.forEach(comment => {
+      const commentItem = createCommentItem(comment);
+      commentList.appendChild(commentItem);
+    });
+    
+    section.appendChild(commentList);
+  }
+  
+  function createCommentItem(comment) {
+    const item = document.createElement('div');
+    item.className = 'comment-item';
+    
+    // コメント内容
+    const content = document.createElement('div');
+    content.className = 'comment-content';
+    content.textContent = comment.content;
+    
+    // 作者と時刻
+    const meta = document.createElement('div');
+    meta.className = 'comment-meta';
+    
+    const author = document.createElement('span');
+    author.className = 'comment-author';
+    author.textContent = comment.author;
+    
+    const timestamp = document.createElement('span');
+    timestamp.className = 'comment-timestamp';
+    const date = new Date(comment.createdAt);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    timestamp.textContent = `${year}/${month}/${day} ${hours}:${minutes}`;
+    
+    meta.appendChild(author);
+    meta.appendChild(document.createTextNode(' - '));
+    meta.appendChild(timestamp);
+    
+    // 編集・削除ボタン
+    const actions = document.createElement('div');
+    actions.className = 'comment-actions';
+    
+    const editButton = document.createElement('button');
+    editButton.className = 'comment-edit-button';
+    editButton.textContent = '編集';
+    
+    editButton.addEventListener('click', () => {
+      startEditingComment(comment, item);
+    });
+    
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'comment-delete-button';
+    deleteButton.textContent = '削除';
+    
+    deleteButton.addEventListener('click', () => {
+      // テスト環境でwindow.confirmが使えない場合の対応
+      const shouldDelete = typeof window.confirm === 'function' 
+        ? confirm('このコメントを削除しますか？')
+        : true;
+      
+      if (shouldDelete) {
+        deleteComment(comment.id);
+      }
+    });
+    
+    actions.appendChild(editButton);
+    actions.appendChild(deleteButton);
+    
+    item.appendChild(content);
+    item.appendChild(meta);
+    item.appendChild(actions);
+    
+    return item;
+  }
+  
+  function startEditingComment(comment, commentItem) {
+    // 既存のコンテンツを隠す
+    const contentDiv = commentItem.querySelector('.comment-content');
+    contentDiv.style.display = 'none';
+    
+    // 編集用インプットを作成
+    const editInput = document.createElement('input');
+    editInput.type = 'text';
+    editInput.className = 'comment-edit-input';
+    editInput.value = comment.content;
+    
+    // キーボードイベント
+    editInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        finishEditingComment(comment.id, editInput.value, commentItem);
+      } else if (e.key === 'Escape') {
+        cancelEditingComment(commentItem);
+      }
+    });
+    
+    // インプットを挿入
+    contentDiv.parentNode.insertBefore(editInput, contentDiv.nextSibling);
+    editInput.focus();
+  }
+  
+  function finishEditingComment(commentId, newContent, commentItem) {
+    if (!newContent || newContent.trim() === '') {
+      cancelEditingComment(commentItem);
+      return;
+    }
+    
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+    
+    comment.content = newContent.trim();
+    saveCommentsToLocalStorage();
+    
+    // UIを更新
+    const contentDiv = commentItem.querySelector('.comment-content');
+    contentDiv.textContent = comment.content;
+    contentDiv.style.display = 'block';
+    
+    const editInput = commentItem.querySelector('.comment-edit-input');
+    if (editInput) editInput.remove();
+  }
+  
+  function cancelEditingComment(commentItem) {
+    const contentDiv = commentItem.querySelector('.comment-content');
+    contentDiv.style.display = 'block';
+    
+    const editInput = commentItem.querySelector('.comment-edit-input');
+    if (editInput) editInput.remove();
+  }
+  
+  function deleteComment(commentId) {
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+    
+    const todoId = comment.todoId;
+    comments = comments.filter(c => c.id !== commentId);
+    saveCommentsToLocalStorage();
+    
+    // コメント数バッジを更新
+    updateCommentButtonBadge(todoId);
+    
+    // 現在開いているコメントセクションがあれば更新
+    const todoElement = document.querySelector(`[data-todo-id="${todoId}"]`);
+    if (todoElement) {
+      const commentPanel = todoElement.querySelector('.comment-panel');
+      if (commentPanel) {
+        updateCommentSection(todoId, commentPanel);
+      }
+    }
+  }
+
+  // 初期データがある場合は表示、なくても初期メッセージを設定
+  render();
   
   return {
     container,
     form,
     todoList,
-    render // テスト用に公開
+    render, // テスト用に公開
+    duplicateTodo // ショートカット用に公開
   };
 }
 

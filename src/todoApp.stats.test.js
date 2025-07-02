@@ -51,9 +51,10 @@ describe('Statistics Features', () => {
     });
 
     // いくつかを完了にする
-    let checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    let checkboxes = container.querySelectorAll('#todo-list input[type="checkbox"]');
     checkboxes[0].click();
-    checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    // DOM更新後に再取得
+    checkboxes = container.querySelectorAll('#todo-list input[type="checkbox"]');
     checkboxes[1].click();
 
     // 統計タブをクリック
@@ -83,10 +84,11 @@ describe('Statistics Features', () => {
     });
 
     // 3つを完了にする
-    let checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    let checkboxes = container.querySelectorAll('#todo-list input[type="checkbox"]');
     for (let i = 0; i < 3; i++) {
       checkboxes[i].click();
-      checkboxes = container.querySelectorAll('input[type="checkbox"]');
+      // DOM更新後に再取得
+      checkboxes = container.querySelectorAll('#todo-list input[type="checkbox"]');
     }
 
     // 統計タブをクリック
@@ -120,7 +122,7 @@ describe('Statistics Features', () => {
     expect(todos[0].completedAt).toBeNull();
 
     // 完了にする
-    const checkbox = container.querySelector('input[type="checkbox"]');
+    const checkbox = container.querySelector('#todo-list input[type="checkbox"]');
     checkbox.click();
 
     // 完了日時が記録されることを確認
@@ -138,9 +140,10 @@ describe('Statistics Features', () => {
     form.dispatchEvent(new Event('submit', { bubbles: true }));
 
     // 完了にしてから未完了に戻す
-    let checkbox = container.querySelector('input[type="checkbox"]');
+    let checkbox = container.querySelector('#todo-list input[type="checkbox"]');
     checkbox.click();
-    checkbox = container.querySelector('input[type="checkbox"]');
+    // DOM更新後に再取得
+    checkbox = container.querySelector('#todo-list input[type="checkbox"]');
     checkbox.click();
 
     // 完了日時がクリアされることを確認
@@ -221,7 +224,7 @@ describe('Statistics Features', () => {
     form.dispatchEvent(new Event('submit', { bubbles: true }));
 
     // 完了にする
-    const checkbox = container.querySelector('input[type="checkbox"]');
+    const checkbox = container.querySelector('#todo-list input[type="checkbox"]');
     checkbox.click();
 
     // 手動で今日の完了日時に設定

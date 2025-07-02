@@ -54,8 +54,9 @@ describe('TODO App HTML Structure', () => {
     expect(main).toBeInTheDocument();
 
     // nav要素でフィルターをラップ
-    const nav = container.querySelector('nav');
+    const nav = container.querySelector('.filter-navigation');
     expect(nav).toBeInTheDocument();
+    expect(nav.tagName).toBe('NAV');
     expect(nav.querySelector('.filter-button')).toBeInTheDocument();
   });
 

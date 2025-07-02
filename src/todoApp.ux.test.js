@@ -62,7 +62,7 @@ describe('UI/UX Features', () => {
       });
 
       // 1つを完了にする
-      const checkbox = container.querySelector('input[type="checkbox"]');
+      const checkbox = container.querySelector('#todo-list input[type="checkbox"]');
       checkbox.click();
 
       // 完了済みフィルターを適用

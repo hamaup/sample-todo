@@ -291,6 +291,10 @@ function createTodoApp(container) {
   
   function handleDragEnd(e) {
     e.target.classList.remove('dragging');
+    // すべてのdrag-overクラスを削除
+    container.querySelectorAll('.drag-over').forEach(item => {
+      item.classList.remove('drag-over');
+    });
   }
   
   function handleDragOver(e) {

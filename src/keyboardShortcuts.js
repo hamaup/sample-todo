@@ -75,6 +75,9 @@ class KeyboardShortcuts {
                          event.target.tagName === 'TEXTAREA' || 
                          event.target.contentEditable === 'true';
     
+    // TODOアイテムがフォーカスされている場合の判定
+    const isTodoItemFocused = event.target.classList && event.target.classList.contains('todo-item');
+    
     const key = this.getKeyString(event);
     const shortcut = this.shortcuts.get(key);
     
@@ -87,7 +90,11 @@ class KeyboardShortcuts {
         'Ctrl+Slash', 'Meta+Slash', 'Shift+Slash'
       ];
       
-      if (!isInputActive || allowedInInput.includes(key)) {
+      // TODOアイテムで無効にするショートカット（ドラッグ&ドロップとの競合を避ける）
+      const disabledInTodoItem = ['ArrowUp', 'ArrowDown'];
+      
+      if ((!isInputActive || allowedInInput.includes(key)) && 
+          (!isTodoItemFocused || !disabledInTodoItem.includes(key))) {
         event.preventDefault();
         event.stopPropagation();
         shortcut.handler(event);

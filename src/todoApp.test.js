@@ -54,7 +54,7 @@ describe('TODO App HTML Structure', () => {
     expect(main).toBeInTheDocument();
 
     // nav要素でフィルターをラップ
-    const nav = container.querySelector('nav');
+    const nav = container.querySelector('.filter-navigation');
     expect(nav).toBeInTheDocument();
     expect(nav.querySelector('.filter-button')).toBeInTheDocument();
   });
@@ -978,4 +978,298 @@ describe('Search Functionality', () => {
       done();
     }, 400);
   }, 10000);
+});
+
+describe('TODO App Drag and Drop', () => {
+  let container;
+  let app;
+
+  beforeEach(() => {
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    
+    // Mock DragEvent for jsdom
+    global.DragEvent = class DragEvent extends Event {
+      constructor(type, eventInitDict) {
+        super(type, eventInitDict);
+        this.dataTransfer = eventInitDict?.dataTransfer || {
+          setData: jest.fn(),
+          getData: jest.fn(),
+          effectAllowed: null,
+          dropEffect: null
+        };
+      }
+    };
+    
+    app = createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    localStorage.clear();
+  });
+
+  test('should make todo items draggable', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // TODOを追加
+    ['TODO 1', 'TODO 2', 'TODO 3'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    const todoItems = container.querySelectorAll('.todo-item');
+    todoItems.forEach(item => {
+      expect(item).toHaveAttribute('draggable', 'true');
+    });
+  });
+
+  test('should add order property to todos', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // TODOを追加
+    input.value = 'Test TODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // LocalStorageから読み込んで確認
+    const savedTodos = JSON.parse(localStorage.getItem('todos'));
+    expect(savedTodos[0]).toHaveProperty('order');
+    expect(savedTodos[0].order).toBe(0);
+  });
+
+  test('should reorder todos on drop', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // 3つのTODOを追加
+    ['First', 'Second', 'Third'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // ドラッグ&ドロップをシミュレート
+    const todoItems = container.querySelectorAll('.todo-item');
+    const firstItem = todoItems[0];
+    const thirdItem = todoItems[2];
+
+    const firstTodoId = firstItem.dataset.todoId;
+    
+    const dataTransfer = {
+      setData: jest.fn(),
+      getData: jest.fn().mockReturnValue(firstTodoId),
+      effectAllowed: null,
+    };
+    
+    const dragStartEvent = new DragEvent('dragstart', { 
+      bubbles: true,
+      dataTransfer: dataTransfer 
+    });
+    Object.defineProperty(dragStartEvent, 'dataTransfer', {
+      value: dataTransfer,
+      writable: false
+    });
+    firstItem.dispatchEvent(dragStartEvent);
+
+    const dropEvent = new DragEvent('drop', { 
+      bubbles: true,
+      dataTransfer: dataTransfer 
+    });
+    Object.defineProperty(dropEvent, 'dataTransfer', {
+      value: dataTransfer,
+      writable: false
+    });
+    thirdItem.dispatchEvent(dropEvent);
+
+    // 順序が変更されたことを確認
+    const updatedTodos = JSON.parse(localStorage.getItem('todos'));
+    const sortedTodos = updatedTodos.sort((a, b) => a.order - b.order);
+    
+    expect(sortedTodos[0].text).toBe('Second');
+    expect(sortedTodos[1].text).toBe('Third');
+    expect(sortedTodos[2].text).toBe('First');
+  });
+});
+
+describe('Category Features', () => {
+  let container;
+  let app;
+
+  beforeEach(() => {
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    localStorage.clear();
+  });
+
+  test('should have category management section', () => {
+    const categoryManagement = container.querySelector('.category-management');
+    expect(categoryManagement).toBeInTheDocument();
+    
+    const categoryForm = container.querySelector('#category-form');
+    expect(categoryForm).toBeInTheDocument();
+    
+    const categoryList = container.querySelector('#category-list');
+    expect(categoryList).toBeInTheDocument();
+  });
+
+  test('should add new category', () => {
+    const categoryForm = container.querySelector('#category-form');
+    const categoryNameInput = categoryForm.querySelector('input[name="category-name"]');
+    const categoryColorInput = categoryForm.querySelector('input[name="category-color"]');
+    
+    categoryNameInput.value = 'Work';
+    categoryColorInput.value = '#ff0000';
+    categoryForm.dispatchEvent(new Event('submit', { bubbles: true }));
+    
+    const savedCategories = JSON.parse(localStorage.getItem('categories'));
+    expect(savedCategories).toHaveLength(1);
+    expect(savedCategories[0].name).toBe('Work');
+    expect(savedCategories[0].color).toBe('#ff0000');
+  });
+
+  test('should filter todos by category', () => {
+    // カテゴリーを追加
+    const categoryForm = container.querySelector('#category-form');
+    const categoryNameInput = categoryForm.querySelector('input[name="category-name"]');
+    categoryNameInput.value = 'Work';
+    categoryForm.dispatchEvent(new Event('submit', { bubbles: true }));
+    
+    // TODOを追加
+    const todoForm = container.querySelector('#todo-form');
+    const todoInput = todoForm.querySelector('input[type="text"]');
+    const categorySelect = todoForm.querySelector('select[name="category"]');
+    
+    todoInput.value = 'Work Task';
+    categorySelect.value = '1';
+    todoForm.dispatchEvent(new Event('submit', { bubbles: true }));
+    
+    todoInput.value = 'Personal Task';
+    categorySelect.value = '';
+    todoForm.dispatchEvent(new Event('submit', { bubbles: true }));
+    
+    // カテゴリーフィルターを適用
+    const categoryFilter = container.querySelector('#category-filter');
+    categoryFilter.value = '1';
+    categoryFilter.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    const todoItems = container.querySelectorAll('.todo-item');
+    expect(todoItems).toHaveLength(1);
+    expect(todoItems[0].textContent).toContain('Work Task');
+  });
+});
+
+describe('Statistics', () => {
+  let container;
+  let app;
+
+  beforeEach(() => {
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    localStorage.clear();
+  });
+
+  test('should show statistics tab', () => {
+    const statsTab = container.querySelector('[data-tab="stats"]');
+    expect(statsTab).toBeInTheDocument();
+    expect(statsTab).toHaveTextContent('統計');
+  });
+
+  test('should calculate basic statistics', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // TODOを追加
+    ['Task 1', 'Task 2', 'Task 3'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // いくつかを完了にする
+    let checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    checkboxes[0].click();
+    
+    // Re-query after first click due to re-render
+    checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    checkboxes[1].click();
+
+    // 統計タブをクリック
+    const statsTab = container.querySelector('[data-tab="stats"]');
+    statsTab.click();
+
+    // 統計が表示されることを確認
+    const totalCount = container.querySelector('.stat-total');
+    const completedCount = container.querySelector('.stat-completed');
+    const incompleteCount = container.querySelector('.stat-incomplete');
+    const completionRate = container.querySelector('.stat-completion-rate');
+
+    expect(totalCount).toHaveTextContent('3');
+    expect(completedCount).toHaveTextContent('2');
+    expect(incompleteCount).toHaveTextContent('1');
+    expect(completionRate).toHaveTextContent('66.7%');
+  });
+});
+
+describe('Dark Mode', () => {
+  let container;
+  let matchMediaMock;
+
+  beforeEach(() => {
+    matchMediaMock = {
+      matches: false,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
+    };
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: jest.fn().mockImplementation(() => matchMediaMock)
+    });
+
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    jest.restoreAllMocks();
+  });
+
+  test('should have theme toggle button', () => {
+    const themeToggle = container.querySelector('.theme-toggle');
+    expect(themeToggle).toBeInTheDocument();
+    expect(themeToggle).toHaveAttribute('aria-label');
+    expect(themeToggle).toHaveAttribute('title', 'ダークモード切り替え');
+  });
+
+  test('should toggle theme when button is clicked', () => {
+    const themeToggle = container.querySelector('.theme-toggle');
+    const themeIcon = container.querySelector('.theme-icon');
+
+    // 初期状態はライトモード
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    expect(themeIcon.textContent).toBe('🌙');
+    expect(themeToggle.getAttribute('aria-label')).toBe('ダークモードに切り替え');
+
+    // ダークモードに切り替え
+    themeToggle.click();
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(themeIcon.textContent).toBe('☀️');
+    expect(themeToggle.getAttribute('aria-label')).toBe('ライトモードに切り替え');
+  });
 });

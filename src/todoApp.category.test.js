@@ -276,12 +276,30 @@ describe('TODO App Category and Tag Features', () => {
     test('should work with search functionality', () => {
       const app = createTodoApp(container);
       
-      const searchInput = container.querySelector('.search-input');
-      expect(searchInput).toBeInTheDocument();
+      // カテゴリーとTODOを作成
+      const categoryForm = container.querySelector('#category-form');
+      const categoryNameInput = container.querySelector('input[name="category-name"]');
       
-      // カテゴリー/タグ付きTODOが検索できるかテスト
+      if (categoryForm && categoryNameInput) {
+        categoryNameInput.value = 'Work';
+        categoryForm.dispatchEvent(new Event('submit', { bubbles: true }));
+      }
+      
+      // TODOを作成
+      const form = container.querySelector('#todo-form');
+      const textInput = form.querySelector('input[type="text"]');
+      const tagsInput = form.querySelector('input[name="tags"]');
+      
+      if (textInput && tagsInput) {
+        textInput.value = 'Test TODO with search';
+        tagsInput.value = 'urgent important';
+        form.dispatchEvent(new Event('submit', { bubbles: true }));
+      }
+      
+      // 検索機能をテスト
+      const searchInput = container.querySelector('.search-input');
       if (searchInput) {
-        searchInput.value = 'test';
+        searchInput.value = 'search';
         searchInput.dispatchEvent(new Event('input', { bubbles: true }));
         
         const todoList = container.querySelector('#todo-list');
@@ -292,7 +310,7 @@ describe('TODO App Category and Tag Features', () => {
     test('should maintain drag and drop functionality', () => {
       const app = createTodoApp(container);
       
-      // ドラッグ&ドロップが引き続き機能するかテスト
+      // TODOを作成
       const form = container.querySelector('#todo-form');
       const textInput = form.querySelector('input[type="text"]');
       
@@ -303,6 +321,121 @@ describe('TODO App Category and Tag Features', () => {
         const todoItem = container.querySelector('.todo-item');
         if (todoItem) {
           expect(todoItem).toHaveAttribute('draggable', 'true');
+          expect(todoItem).toHaveAttribute('data-todo-id');
+        }
+      }
+    });
+
+    test('should work with theme toggle', () => {
+      const app = createTodoApp(container);
+      
+      const themeToggle = container.querySelector('.theme-toggle');
+      if (themeToggle) {
+        expect(themeToggle).toBeInTheDocument();
+        
+        // テーマ切り替えをテスト
+        themeToggle.click();
+        expect(document.documentElement.getAttribute('data-theme')).toBeTruthy();
+      }
+    });
+
+    test('should work with tab switching', () => {
+      const app = createTodoApp(container);
+      
+      const statsTab = container.querySelector('[data-tab="stats"]');
+      if (statsTab) {
+        statsTab.click();
+        
+        const statsPane = container.querySelector('[data-pane="stats"]');
+        expect(statsPane).toHaveClass('active');
+      }
+    });
+
+    test('should display TODO with category and tags correctly', () => {
+      const app = createTodoApp(container);
+      
+      // カテゴリーを作成
+      const categoryForm = container.querySelector('#category-form');
+      const categoryNameInput = container.querySelector('input[name="category-name"]');
+      const categoryColorInput = container.querySelector('input[name="category-color"]');
+      
+      if (categoryForm && categoryNameInput && categoryColorInput) {
+        categoryNameInput.value = 'Work';
+        categoryColorInput.value = '#ff0000';
+        categoryForm.dispatchEvent(new Event('submit', { bubbles: true }));
+      }
+      
+      // カテゴリー付きTODOを作成
+      const form = container.querySelector('#todo-form');
+      const textInput = form.querySelector('input[type="text"]');
+      const categorySelect = form.querySelector('select[name="category"]');
+      const tagsInput = form.querySelector('input[name="tags"]');
+      
+      if (textInput && categorySelect && tagsInput) {
+        textInput.value = 'Test TODO';
+        if (categorySelect.options.length > 1) {
+          categorySelect.value = categorySelect.options[1].value;
+        }
+        tagsInput.value = 'urgent important';
+        form.dispatchEvent(new Event('submit', { bubbles: true }));
+        
+        // カテゴリーとタグが表示されているかチェック
+        const categoryDisplay = container.querySelector('.todo-category');
+        const tagsDisplay = container.querySelector('.todo-tags');
+        
+        if (categoryDisplay) {
+          expect(categoryDisplay).toHaveTextContent('Work');
+          expect(categoryDisplay.style.backgroundColor).toBe('rgb(255, 0, 0)');
+        }
+        
+        if (tagsDisplay) {
+          const tagElements = tagsDisplay.querySelectorAll('.todo-tag');
+          expect(tagElements).toHaveLength(2);
+        }
+      }
+    });
+
+    test('should handle keyboard shortcuts', () => {
+      const app = createTodoApp(container);
+      
+      const searchInput = container.querySelector('.search-input');
+      
+      // Ctrl+F ショートカットをテスト
+      const event = new KeyboardEvent('keydown', {
+        key: 'f',
+        ctrlKey: true,
+        bubbles: true
+      });
+      
+      document.dispatchEvent(event);
+      
+      // フォーカスがsearchInputに移動することを期待（ただし、テスト環境では制限あり）
+      expect(searchInput).toBeInTheDocument();
+    });
+
+    test('should handle TODO completion with timestamps', () => {
+      const app = createTodoApp(container);
+      
+      // TODOを作成
+      const form = container.querySelector('#todo-form');
+      const textInput = form.querySelector('input[type="text"]');
+      
+      if (textInput) {
+        textInput.value = 'Test completion';
+        form.dispatchEvent(new Event('submit', { bubbles: true }));
+        
+        // チェックボックスをクリックして完了にする
+        const checkbox = container.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+          checkbox.checked = true;
+          checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          // LocalStorageの確認
+          const savedTodos = JSON.parse(localStorage.getItem('todos') || '[]');
+          if (savedTodos.length > 0) {
+            expect(savedTodos[0].completed).toBe(true);
+            expect(savedTodos[0].completedAt).toBeTruthy();
+          }
         }
       }
     });

@@ -139,4 +139,60 @@ describe('TODO App Functionality', () => {
       expect(todoList.children[index].textContent).toContain(todoText);
     });
   });
+
+  test('should toggle todo completion status when clicked', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = 'テストTODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    let todoItem = todoList.children[0];
+    let checkbox = todoItem.querySelector('input[type="checkbox"]');
+
+    // 初期状態では未完了
+    expect(checkbox.checked).toBe(false);
+    expect(todoItem.classList.contains('completed')).toBe(false);
+
+    // クリックして完了状態に
+    checkbox.click();
+    
+    // 再レンダリング後の要素を取得
+    todoItem = todoList.children[0];
+    checkbox = todoItem.querySelector('input[type="checkbox"]');
+    expect(checkbox.checked).toBe(true);
+    expect(todoItem.classList.contains('completed')).toBe(true);
+
+    // 再度クリックして未完了状態に
+    checkbox.click();
+    
+    // 再レンダリング後の要素を取得
+    todoItem = todoList.children[0];
+    checkbox = todoItem.querySelector('input[type="checkbox"]');
+    expect(checkbox.checked).toBe(false);
+    expect(todoItem.classList.contains('completed')).toBe(false);
+  });
+
+  test('should display checkbox for each todo item', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 複数のTODOを追加
+    ['TODO 1', 'TODO 2'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 各TODOアイテムにチェックボックスがあること
+    const todoItems = todoList.querySelectorAll('li');
+    expect(todoItems).toHaveLength(2);
+    
+    todoItems.forEach(item => {
+      const checkbox = item.querySelector('input[type="checkbox"]');
+      expect(checkbox).toBeInTheDocument();
+    });
+  });
 });

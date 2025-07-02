@@ -34,7 +34,23 @@ function createTodoApp(container) {
     todoList.innerHTML = '';
     todos.forEach(todo => {
       const li = document.createElement('li');
-      li.textContent = todo.text;
+      if (todo.completed) {
+        li.classList.add('completed');
+      }
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = todo.completed;
+      checkbox.addEventListener('change', () => {
+        todo.completed = checkbox.checked;
+        render();
+      });
+      
+      const label = document.createElement('label');
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(' ' + todo.text));
+      
+      li.appendChild(label);
       todoList.appendChild(li);
     });
   }

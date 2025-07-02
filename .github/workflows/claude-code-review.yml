@@ -3,6 +3,7 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize]
+  workflow_dispatch: # 手動実行を許可
     # Optional: Only run on specific file changes
     # paths:
     #   - "src/**/*.ts"
@@ -19,6 +20,8 @@ jobs:
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
     
     runs-on: ubuntu-latest
+    # 一時的に Claude Code Review を無効化（update-comment-link.ts エラーのため）
+    if: false
     permissions:
       contents: read
       pull-requests: read

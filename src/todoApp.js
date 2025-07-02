@@ -43,6 +43,7 @@ function createTodoApp(container) {
   let editingId = null;
   let currentFilter = 'all';
   let searchQuery = '';
+  let draggedTodo = null;
   
   // LocalStorage関連のヘルパー関数
   function loadFromLocalStorage() {
@@ -51,7 +52,11 @@ function createTodoApp(container) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed;
+          // 既存のTODOにorderプロパティがない場合は追加
+          return parsed.map((todo, index) => ({
+            ...todo,
+            order: todo.order !== undefined ? todo.order : index
+          }));
         }
       }
     } catch (error) {
@@ -90,12 +95,134 @@ function createTodoApp(container) {
       timeout = setTimeout(later, wait);
     };
   }
+
+  // ドラッグ&ドロップのハンドラ関数
+  function handleDragStart(e) {
+    draggedTodo = todos.find(todo => todo.id === parseInt(e.target.dataset.todoId));
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', e.target.dataset.todoId);
+  }
+
+  function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+    // 全ての drag-over クラスを削除
+    container.querySelectorAll('.drag-over').forEach(item => {
+      item.classList.remove('drag-over');
+    });
+  }
+
+  function handleDragOver(e) {
+    if (e.preventDefault) {
+      e.preventDefault(); // ドロップを許可
+    }
+    e.dataTransfer.dropEffect = 'move';
+    
+    const todoItem = e.target.closest('.todo-item');
+    if (todoItem && !todoItem.classList.contains('dragging')) {
+      // 既存の drag-over を削除
+      container.querySelectorAll('.drag-over').forEach(item => {
+        item.classList.remove('drag-over');
+      });
+      todoItem.classList.add('drag-over');
+    }
+    
+    return false;
+  }
+
+  function handleDragLeave(e) {
+    const todoItem = e.target.closest('.todo-item');
+    if (todoItem) {
+      todoItem.classList.remove('drag-over');
+    }
+  }
+
+  function handleDrop(e) {
+    if (e.stopPropagation) {
+      e.stopPropagation();
+    }
+    e.preventDefault();
+    
+    const todoItem = e.target.closest('.todo-item');
+    if (todoItem) {
+      todoItem.classList.remove('drag-over');
+      
+      const droppedId = parseInt(todoItem.dataset.todoId);
+      const draggedId = parseInt(e.dataTransfer.getData('text/plain'));
+      
+      if (draggedId !== droppedId) {
+        // 並び替えを実行
+        reorderTodos(draggedId, droppedId);
+      }
+    }
+    
+    return false;
+  }
+
+  // キーボードによる並び替え
+  function handleKeyDown(e) {
+    if (e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      const todoId = parseInt(e.target.dataset.todoId);
+      const todo = todos.find(t => t.id === todoId);
+      if (!todo) return;
+      
+      const sortedTodos = [...todos].sort((a, b) => a.order - b.order);
+      const currentIndex = sortedTodos.findIndex(t => t.id === todoId);
+      
+      if (e.key === 'ArrowUp' && currentIndex > 0) {
+        const targetTodo = sortedTodos[currentIndex - 1];
+        reorderTodos(todoId, targetTodo.id, 'before');
+      } else if (e.key === 'ArrowDown' && currentIndex < sortedTodos.length - 1) {
+        const targetTodo = sortedTodos[currentIndex + 1];
+        reorderTodos(todoId, targetTodo.id, 'after');
+      }
+      
+      // フォーカスを維持
+      setTimeout(() => {
+        const newItem = container.querySelector(`[data-todo-id="${todoId}"]`);
+        if (newItem) newItem.focus();
+      }, 0);
+    }
+  }
+
+  // TODOの並び替え関数
+  function reorderTodos(draggedId, targetId, position = 'after') {
+    const draggedTodo = todos.find(t => t.id === draggedId);
+    const targetTodo = todos.find(t => t.id === targetId);
+    
+    if (!draggedTodo || !targetTodo) return;
+    
+    // 現在の順序でソート
+    const sortedTodos = [...todos].sort((a, b) => a.order - b.order);
+    
+    // ドラッグされたアイテムを除外
+    const filteredTodos = sortedTodos.filter(t => t.id !== draggedId);
+    
+    // ターゲットの位置を見つける
+    const targetIndex = filteredTodos.findIndex(t => t.id === targetId);
+    
+    // 新しい位置に挿入
+    const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+    filteredTodos.splice(insertIndex, 0, draggedTodo);
+    
+    // order値を更新
+    filteredTodos.forEach((todo, index) => {
+      todo.order = index;
+    });
+    
+    saveToLocalStorage();
+    render();
+  }
   
   function render() {
     todoList.innerHTML = '';
     
+    // orderプロパティに基づいて並び替え
+    const sortedTodos = [...todos].sort((a, b) => a.order - b.order);
+    
     // フィルターと検索条件に基づいてTODOを表示
-    const filteredTodos = todos.filter(todo => {
+    const filteredTodos = sortedTodos.filter(todo => {
       // フィルター条件
       let passesFilter = true;
       if (currentFilter === 'incomplete') passesFilter = !todo.completed;
@@ -112,9 +239,24 @@ function createTodoApp(container) {
     
     filteredTodos.forEach(todo => {
       const li = document.createElement('li');
+      li.className = 'todo-item';
+      li.draggable = true;
+      li.dataset.todoId = todo.id;
+      li.tabIndex = 0; // キーボードフォーカス可能
+      
       if (todo.completed) {
         li.classList.add('completed');
       }
+      
+      // ドラッグイベントハンドラ
+      li.addEventListener('dragstart', handleDragStart);
+      li.addEventListener('dragend', handleDragEnd);
+      li.addEventListener('dragover', handleDragOver);
+      li.addEventListener('drop', handleDrop);
+      li.addEventListener('dragleave', handleDragLeave);
+      
+      // キーボードイベントハンドラ
+      li.addEventListener('keydown', handleKeyDown);
       
       if (editingId === todo.id) {
         // 編集モード
@@ -209,7 +351,8 @@ function createTodoApp(container) {
     todos.push({
       id: nextId++,
       text: text,
-      completed: false
+      completed: false,
+      order: todos.length
     });
     
     saveToLocalStorage();

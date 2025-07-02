@@ -50,7 +50,16 @@ function createTodoApp(container) {
       label.appendChild(checkbox);
       label.appendChild(document.createTextNode(' ' + todo.text));
       
+      const deleteButton = document.createElement('button');
+      deleteButton.className = 'delete-button';
+      deleteButton.textContent = '削除';
+      deleteButton.addEventListener('click', () => {
+        todos = todos.filter(t => t.id !== todo.id);
+        render();
+      });
+      
       li.appendChild(label);
+      li.appendChild(deleteButton);
       todoList.appendChild(li);
     });
   }

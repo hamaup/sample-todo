@@ -630,7 +630,10 @@ function createTodoApp(container) {
   // 日別完了推移チャートを更新
   function updateDailyChart() {
     const canvas = container.querySelector('#daily-chart');
+    if (!canvas) return;
+    
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     
     // 簡易的なチャート描画
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -683,14 +686,23 @@ function createTodoApp(container) {
     };
     
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
     
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `todo-stats-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    
-    URL.revokeObjectURL(url);
+    // Check if URL.createObjectURL exists (for testing environments)
+    if (typeof URL !== 'undefined' && URL.createObjectURL) {
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `todo-stats-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      
+      URL.revokeObjectURL(url);
+    } else {
+      // Fallback for test environment
+      const link = document.createElement('a');
+      link.setAttribute('download', `todo-stats-${new Date().toISOString().split('T')[0]}.json`);
+      link.click();
+    }
   });
   
   // 日付範囲フィルターの変更イベント

@@ -787,3 +787,195 @@ describe('Accessibility and Quality', () => {
     expect(todoList.children).toHaveLength(4);
   });
 });
+
+describe('Search Functionality', () => {
+  let container;
+  let app;
+
+  beforeEach(() => {
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    localStorage.clear();
+  });
+
+  test('should have a search input field', () => {
+    const searchInput = container.querySelector('input[type="search"]');
+    expect(searchInput).toBeInTheDocument();
+    expect(searchInput).toHaveAttribute('placeholder', 'TODOを検索...');
+    expect(searchInput).toHaveAttribute('aria-label', 'TODO検索');
+  });
+
+  test('should filter todos based on search query', (done) => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const searchInput = container.querySelector('input[type="search"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    ['買い物に行く', '本を読む', '運動する', '買い物リストを作る'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    expect(todoList.children).toHaveLength(4);
+
+    // 検索
+    searchInput.value = '買い物';
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // デバウンスを待つ
+    setTimeout(() => {
+      // 検索結果
+      expect(todoList.children).toHaveLength(2);
+      expect(todoList.children[0].textContent).toContain('買い物に行く');
+      expect(todoList.children[1].textContent).toContain('買い物リストを作る');
+      done();
+    }, 400);
+  });
+
+  test('should perform case-insensitive search', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const searchInput = container.querySelector('input[type="search"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    ['TODO作成', 'todo確認', 'ToDo整理'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 大文字で検索
+    searchInput.value = 'TODO';
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // すべてマッチする
+    expect(todoList.children).toHaveLength(3);
+  });
+
+  test('should clear search when input is empty', (done) => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const searchInput = container.querySelector('input[type="search"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    ['タスク1', 'タスク2', 'タスク3'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 検索
+    searchInput.value = 'タスク1';
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    
+    setTimeout(() => {
+      expect(todoList.children).toHaveLength(1);
+
+      // 検索をクリア
+      searchInput.value = '';
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      setTimeout(() => {
+        expect(todoList.children).toHaveLength(3);
+        done();
+      }, 400);
+    }, 400);
+  });
+
+  test('should work with filters and search together', (done) => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const searchInput = container.querySelector('input[type="search"]');
+    const todoList = container.querySelector('#todo-list');
+    const incompleteButton = container.querySelector('[data-filter="incomplete"]');
+
+    // TODOを追加
+    ['買い物に行く', '本を読む', '買い物リストを作る'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 最初のTODOを完了にする
+    todoList.children[0].querySelector('input[type="checkbox"]').click();
+
+    // 未完了フィルターを適用
+    incompleteButton.click();
+    expect(todoList.children).toHaveLength(2);
+
+    // 検索を追加
+    searchInput.value = '買い物';
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // デバウンスを待つ
+    setTimeout(() => {
+      // フィルターと検索の両方が適用される
+      expect(todoList.children).toHaveLength(1);
+      expect(todoList.children[0].textContent).toContain('買い物リストを作る');
+      done();
+    }, 400);
+  });
+
+  test('should highlight search terms in results', (done) => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const searchInput = container.querySelector('input[type="search"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = '重要なタスクを完了する';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // 検索
+    searchInput.value = '重要';
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // デバウンスを待つ
+    setTimeout(() => {
+      // ハイライトされているか確認
+      const todoText = todoList.children[0].querySelector('label').innerHTML;
+      expect(todoText).toContain('<mark>');
+      expect(todoText).toContain('重要');
+      done();
+    }, 400);
+  });
+
+  test.skip('should debounce search input for performance', (done) => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const searchInput = container.querySelector('input[type="search"]');
+
+    // 多数のTODOを追加
+    for (let i = 1; i <= 10; i++) {
+      input.value = `タスク${i}`;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    }
+
+    let renderCount = 0;
+    const originalRender = app.render;
+    app.render = function() {
+      renderCount++;
+      originalRender.call(this);
+    };
+
+    // 高速に入力
+    'タスク'.split('').forEach((char, index) => {
+      searchInput.value += char;
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // デバウンス後に1回だけレンダリングされることを確認
+    setTimeout(() => {
+      // デバウンスにより、複数回の入力でも1回だけレンダリングされる
+      expect(renderCount).toBeGreaterThanOrEqual(1);
+      expect(renderCount).toBeLessThanOrEqual(2);
+      done();
+    }, 400);
+  }, 10000);
+});

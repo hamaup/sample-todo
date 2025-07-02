@@ -13,6 +13,15 @@ function createTodoApp(container) {
         <button type="submit">追加</button>
       </form>
       
+      <div class="search-container">
+        <input 
+          type="search"
+          placeholder="TODOを検索..."
+          aria-label="TODO検索"
+          class="search-input"
+        />
+      </div>
+      
       <nav>
         <button class="filter-button" data-filter="all">全て</button>
         <button class="filter-button" data-filter="incomplete">未完了</button>
@@ -26,12 +35,14 @@ function createTodoApp(container) {
   const form = container.querySelector('#todo-form');
   const input = form.querySelector('input[type="text"]');
   const todoList = container.querySelector('#todo-list');
+  const searchInput = container.querySelector('input[type="search"]');
   
   // LocalStorageからデータを読み込み
   let todos = loadFromLocalStorage();
   let nextId = calculateNextId(todos);
   let editingId = null;
   let currentFilter = 'all';
+  let searchQuery = '';
   
   // LocalStorage関連のヘルパー関数
   function loadFromLocalStorage() {
@@ -63,15 +74,40 @@ function createTodoApp(container) {
     return maxId + 1;
   }
   
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  
+  // デバウンス関数
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+  
   function render() {
     todoList.innerHTML = '';
     
-    // フィルター条件に基づいてTODOを表示
+    // フィルターと検索条件に基づいてTODOを表示
     const filteredTodos = todos.filter(todo => {
-      if (currentFilter === 'all') return true;
-      if (currentFilter === 'incomplete') return !todo.completed;
-      if (currentFilter === 'completed') return todo.completed;
-      return true;
+      // フィルター条件
+      let passesFilter = true;
+      if (currentFilter === 'incomplete') passesFilter = !todo.completed;
+      else if (currentFilter === 'completed') passesFilter = todo.completed;
+      
+      // 検索条件（大文字小文字を区別しない）
+      let passesSearch = true;
+      if (searchQuery) {
+        passesSearch = todo.text.toLowerCase().includes(searchQuery.toLowerCase());
+      }
+      
+      return passesFilter && passesSearch;
     });
     
     filteredTodos.forEach(todo => {
@@ -131,7 +167,17 @@ function createTodoApp(container) {
         
         const label = document.createElement('label');
         label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(' ' + todo.text));
+        
+        // 検索ハイライト処理
+        if (searchQuery) {
+          const span = document.createElement('span');
+          const regex = new RegExp(`(${escapeRegExp(searchQuery)})`, 'gi');
+          span.innerHTML = ' ' + todo.text.replace(regex, '<mark>$1</mark>');
+          label.appendChild(span);
+        } else {
+          label.appendChild(document.createTextNode(' ' + todo.text));
+        }
+        
         label.addEventListener('dblclick', () => {
           editingId = todo.id;
           render();
@@ -189,6 +235,25 @@ function createTodoApp(container) {
   // 初期状態で全てボタンをアクティブに
   container.querySelector('[data-filter="all"]').classList.add('active');
   
+  // 検索入力のイベントハンドラ（デバウンス付き）
+  const debouncedSearch = debounce(() => {
+    render();
+  }, 300);
+  
+  searchInput.addEventListener('input', (e) => {
+    searchQuery = e.target.value;
+    debouncedSearch();
+  });
+  
+  // キーボードショートカット（Ctrl/Cmd + F）
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+    }
+  });
+  
   // 初期データがある場合は表示
   if (todos.length > 0) {
     render();
@@ -197,7 +262,8 @@ function createTodoApp(container) {
   return {
     container,
     form,
-    todoList
+    todoList,
+    render // テスト用に公開
   };
 }
 

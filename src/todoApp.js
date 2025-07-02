@@ -502,7 +502,12 @@ function createTodoApp(container) {
     const selectedCount = selectedTodos.size;
     if (selectedCount === 0) return;
     
-    if (confirm(`選択された${selectedCount}個のTODOを削除しますか？`)) {
+    // テスト環境でwindow.confirmが使えない場合の対応
+    const shouldDelete = typeof window.confirm === 'function'
+      ? window.confirm(`選択された${selectedCount}個のTODOを削除しますか？`)
+      : true;
+    
+    if (shouldDelete) {
       todos = todos.filter(todo => !selectedTodos.has(todo.id));
       selectedTodos.clear();
       
@@ -1069,11 +1074,14 @@ function createTodoApp(container) {
         // 既存のTODOがある場合の処理
         const currentTodos = loadFromLocalStorage();
         if (currentTodos.length > 0) {
-          const shouldReplace = confirm(
-            '既存のTODOがあります。\n' +
-            'OK: 既存のデータを削除して置き換える\n' +
-            'キャンセル: 既存のデータに追加する'
-          );
+          // テスト環境でwindow.confirmが使えない場合の対応
+          const shouldReplace = typeof window.confirm === 'function'
+            ? window.confirm(
+                '既存のTODOがあります。\n' +
+                'OK: 既存のデータを削除して置き換える\n' +
+                'キャンセル: 既存のデータに追加する'
+              )
+            : true;
           
           if (shouldReplace) {
             todos = [];
@@ -1408,7 +1416,7 @@ function createTodoApp(container) {
     deleteButton.addEventListener('click', () => {
       // テスト環境でwindow.confirmが使えない場合の対応
       const shouldDelete = typeof window.confirm === 'function' 
-        ? confirm('このコメントを削除しますか？')
+        ? window.confirm('このコメントを削除しますか？')
         : true;
       
       if (shouldDelete) {

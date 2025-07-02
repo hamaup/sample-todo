@@ -173,6 +173,7 @@ function createTodoApp(container) {
   
   // フィルターボタンのイベント設定
   const filterButtons = container.querySelectorAll('.filter-button');
+  
   filterButtons.forEach(button => {
     button.addEventListener('click', () => {
       currentFilter = button.getAttribute('data-filter');

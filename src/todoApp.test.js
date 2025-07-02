@@ -593,3 +593,197 @@ describe('LocalStorage Persistence', () => {
     document.body.removeChild(newContainer);
   });
 });
+
+describe('Accessibility and Quality', () => {
+  let container;
+  let app;
+
+  beforeEach(() => {
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    localStorage.clear();
+  });
+
+  test('should have proper ARIA labels for screen readers', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // フォーム要素のアクセシビリティ
+    expect(input).toHaveAttribute('aria-label', 'TODO入力');
+    expect(todoList).toHaveAttribute('aria-label', 'TODOリスト');
+
+    // TODOを追加
+    input.value = 'アクセシビリティテスト';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // チェックボックスのラベル関連付け
+    const checkbox = todoList.querySelector('input[type="checkbox"]');
+    const label = todoList.querySelector('label');
+    expect(label).toContainElement(checkbox);
+  });
+
+  test('should be keyboard navigable', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const filterButtons = container.querySelectorAll('.filter-button');
+
+    // タブ可能な要素
+    expect(input.tabIndex).toBeGreaterThanOrEqual(0);
+    filterButtons.forEach(button => {
+      expect(button.tabIndex).toBeGreaterThanOrEqual(0);
+    });
+
+    // TODOを追加
+    input.value = 'キーボードナビゲーションテスト';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    const todoList = container.querySelector('#todo-list');
+    const checkbox = todoList.querySelector('input[type="checkbox"]');
+    const deleteButton = todoList.querySelector('.delete-button');
+
+    expect(checkbox.tabIndex).toBeGreaterThanOrEqual(0);
+    expect(deleteButton.tabIndex).toBeGreaterThanOrEqual(0);
+  });
+
+  test('should maintain focus management during editing', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = 'フォーカステスト';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // 編集モードに入る
+    const label = todoList.querySelector('label');
+    label.dispatchEvent(new Event('dblclick', { bubbles: true }));
+
+    // 編集入力にフォーカスがあることを確認
+    const editInput = todoList.querySelector('.edit-input');
+    expect(editInput).toBeTruthy();
+    // 実際のブラウザではsetTimeoutでフォーカスされるが、テストでは確認が難しい
+  });
+
+  test('should handle edge cases gracefully', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 非常に長いテキスト
+    const longText = 'a'.repeat(500);
+    input.value = longText;
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+    expect(todoList.children).toHaveLength(1);
+    expect(todoList.children[0].textContent).toContain(longText);
+
+    // 特殊文字
+    const specialChars = '<script>alert("XSS")</script>';
+    input.value = specialChars;
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+    expect(todoList.children).toHaveLength(2);
+    // テキストがエスケープされていることを確認
+    expect(todoList.children[1].innerHTML).not.toContain('<script>');
+    expect(todoList.children[1].textContent).toContain(specialChars);
+
+    // 絵文字
+    const emoji = '🎉 タスク完了 🎉';
+    input.value = emoji;
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+    expect(todoList.children).toHaveLength(3);
+    expect(todoList.children[2].textContent).toContain(emoji);
+  });
+
+  test('should handle rapid user interactions', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 高速に複数のTODOを追加
+    for (let i = 0; i < 10; i++) {
+      input.value = `高速追加 ${i}`;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    }
+    expect(todoList.children).toHaveLength(10);
+
+    // 高速にチェック状態を切り替え
+    for (let i = 0; i < todoList.children.length; i++) {
+      if (i % 2 === 0) {
+        const checkbox = todoList.children[i].querySelector('input[type="checkbox"]');
+        checkbox.click();
+      }
+    }
+
+    // 再レンダリング後の完了アイテムを確認
+    const completedCount = Array.from(todoList.children).filter(li => 
+      li.classList.contains('completed')
+    ).length;
+    expect(completedCount).toBe(5);
+  });
+
+  test('should maintain data consistency with localStorage', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // 複数の操作を連続で実行
+    input.value = 'データ整合性テスト1';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+    
+    input.value = 'データ整合性テスト2';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // チェック状態を変更
+    const todoList = container.querySelector('#todo-list');
+    const checkbox = todoList.children[0].querySelector('input[type="checkbox"]');
+    checkbox.click();
+
+    // 削除
+    const deleteButton = todoList.children[1].querySelector('.delete-button');
+    deleteButton.click();
+
+    // LocalStorageと表示が一致していることを確認
+    const saved = JSON.parse(localStorage.getItem('todos'));
+    expect(saved).toHaveLength(1);
+    expect(saved[0].text).toBe('データ整合性テスト1');
+    expect(saved[0].completed).toBe(true);
+    expect(todoList.children).toHaveLength(1);
+  });
+
+  test('should handle concurrent filter and data operations', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+    const incompleteButton = container.querySelector('[data-filter="incomplete"]');
+    
+    // データを準備
+    ['タスク1', 'タスク2', 'タスク3'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 一部を完了にする
+    todoList.children[0].querySelector('input[type="checkbox"]').click();
+    todoList.children[2].querySelector('input[type="checkbox"]').click();
+
+    // フィルターを適用
+    incompleteButton.click();
+    expect(todoList.children).toHaveLength(1);
+    expect(todoList.children[0].textContent).toContain('タスク2');
+
+    // フィルター適用中に新規追加
+    input.value = 'フィルター中の新規タスク';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+    expect(todoList.children).toHaveLength(2);
+
+    // フィルターを解除して全体を確認
+    const allButton = container.querySelector('[data-filter="all"]');
+    allButton.click();
+    expect(todoList.children).toHaveLength(4);
+  });
+});

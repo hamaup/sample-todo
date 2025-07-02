@@ -27,10 +27,41 @@ function createTodoApp(container) {
   const input = form.querySelector('input[type="text"]');
   const todoList = container.querySelector('#todo-list');
   
-  let todos = [];
-  let nextId = 1;
+  // LocalStorageからデータを読み込み
+  let todos = loadFromLocalStorage();
+  let nextId = calculateNextId(todos);
   let editingId = null;
   let currentFilter = 'all';
+  
+  // LocalStorage関連のヘルパー関数
+  function loadFromLocalStorage() {
+    try {
+      const saved = localStorage.getItem('todos');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load todos from localStorage:', error);
+    }
+    return [];
+  }
+  
+  function saveToLocalStorage() {
+    try {
+      localStorage.setItem('todos', JSON.stringify(todos));
+    } catch (error) {
+      console.error('Failed to save todos to localStorage:', error);
+    }
+  }
+  
+  function calculateNextId(todoList) {
+    if (todoList.length === 0) return 1;
+    const maxId = Math.max(...todoList.map(todo => todo.id || 0));
+    return maxId + 1;
+  }
   
   function render() {
     todoList.innerHTML = '';
@@ -66,6 +97,7 @@ function createTodoApp(container) {
             const newText = editInput.value.trim();
             if (newText !== '') {
               todo.text = newText;
+              saveToLocalStorage();
             }
           }
           editingId = null;
@@ -93,6 +125,7 @@ function createTodoApp(container) {
         checkbox.checked = todo.completed;
         checkbox.addEventListener('change', () => {
           todo.completed = checkbox.checked;
+          saveToLocalStorage();
           render();
         });
         
@@ -109,6 +142,7 @@ function createTodoApp(container) {
         deleteButton.textContent = '削除';
         deleteButton.addEventListener('click', () => {
           todos = todos.filter(t => t.id !== todo.id);
+          saveToLocalStorage();
           render();
         });
         
@@ -132,6 +166,7 @@ function createTodoApp(container) {
       completed: false
     });
     
+    saveToLocalStorage();
     render();
     input.value = '';
   });
@@ -152,6 +187,11 @@ function createTodoApp(container) {
   
   // 初期状態で全てボタンをアクティブに
   container.querySelector('[data-filter="all"]').classList.add('active');
+  
+  // 初期データがある場合は表示
+  if (todos.length > 0) {
+    render();
+  }
   
   return {
     container,

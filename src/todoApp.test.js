@@ -4,12 +4,14 @@ describe('TODO App HTML Structure', () => {
   let container;
 
   beforeEach(() => {
+    localStorage.clear();
     container = document.createElement('div');
     document.body.appendChild(container);
   });
 
   afterEach(() => {
     document.body.removeChild(container);
+    localStorage.clear();
   });
 
   test('should create basic HTML structure', () => {
@@ -75,6 +77,7 @@ describe('TODO App Functionality', () => {
   let app;
 
   beforeEach(() => {
+    localStorage.clear();
     container = document.createElement('div');
     document.body.appendChild(container);
     app = createTodoApp(container);
@@ -82,6 +85,7 @@ describe('TODO App Functionality', () => {
 
   afterEach(() => {
     document.body.removeChild(container);
+    localStorage.clear();
   });
 
   test('should add a new todo when form is submitted', () => {
@@ -414,5 +418,178 @@ describe('TODO App Functionality', () => {
     expect(todoList.children).toHaveLength(2);
     expect(todoList.children[0].textContent).toContain('TODO2');
     expect(todoList.children[1].textContent).toContain('TODO3');
+  });
+});
+
+describe('LocalStorage Persistence', () => {
+  let container;
+  let app;
+
+  beforeEach(() => {
+    // LocalStorageをクリア
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    localStorage.clear();
+  });
+
+  test('should save todos to localStorage when adding a todo', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+
+    // TODOを追加
+    input.value = '保存されるTODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // LocalStorageに保存されていることを確認
+    const saved = JSON.parse(localStorage.getItem('todos'));
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({
+      text: '保存されるTODO',
+      completed: false
+    });
+    expect(saved[0].id).toBeDefined();
+  });
+
+  test('should save todos to localStorage when toggling completion', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = 'テストTODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // 完了状態を切り替え
+    const checkbox = todoList.children[0].querySelector('input[type="checkbox"]');
+    checkbox.click();
+
+    // LocalStorageに更新が反映されていることを確認
+    const saved = JSON.parse(localStorage.getItem('todos'));
+    expect(saved[0].completed).toBe(true);
+  });
+
+  test('should save todos to localStorage when deleting a todo', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 複数のTODOを追加
+    ['TODO 1', 'TODO 2', 'TODO 3'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 2番目のTODOを削除
+    const deleteButton = todoList.children[1].querySelector('.delete-button');
+    deleteButton.click();
+
+    // LocalStorageに反映されていることを確認
+    const saved = JSON.parse(localStorage.getItem('todos'));
+    expect(saved).toHaveLength(2);
+    expect(saved[0].text).toBe('TODO 1');
+    expect(saved[1].text).toBe('TODO 3');
+  });
+
+  test('should save todos to localStorage when editing a todo', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // TODOを追加
+    input.value = '編集前';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // ダブルクリックで編集モードに
+    const label = todoList.children[0].querySelector('label');
+    label.dispatchEvent(new Event('dblclick', { bubbles: true }));
+
+    // 編集して保存
+    const editInput = todoList.children[0].querySelector('.edit-input');
+    editInput.value = '編集後';
+    editInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    // LocalStorageに反映されていることを確認
+    const saved = JSON.parse(localStorage.getItem('todos'));
+    expect(saved[0].text).toBe('編集後');
+  });
+
+  test('should load todos from localStorage on initialization', () => {
+    // 事前にLocalStorageにデータを保存
+    const existingTodos = [
+      { id: 1, text: '既存TODO 1', completed: false },
+      { id: 2, text: '既存TODO 2', completed: true },
+      { id: 3, text: '既存TODO 3', completed: false }
+    ];
+    localStorage.setItem('todos', JSON.stringify(existingTodos));
+
+    // 新しいコンテナでアプリを初期化
+    const newContainer = document.createElement('div');
+    document.body.appendChild(newContainer);
+    createTodoApp(newContainer);
+
+    const todoList = newContainer.querySelector('#todo-list');
+    const todoItems = todoList.querySelectorAll('li');
+
+    // 保存されていたTODOが表示されていることを確認
+    expect(todoItems).toHaveLength(3);
+    expect(todoItems[0].textContent).toContain('既存TODO 1');
+    expect(todoItems[1].textContent).toContain('既存TODO 2');
+    expect(todoItems[1].classList.contains('completed')).toBe(true);
+    expect(todoItems[2].textContent).toContain('既存TODO 3');
+
+    document.body.removeChild(newContainer);
+  });
+
+  test('should handle corrupted localStorage data gracefully', () => {
+    // 不正なデータをLocalStorageに保存
+    localStorage.setItem('todos', 'invalid JSON data');
+
+    // エラーなくアプリが初期化されることを確認
+    const newContainer = document.createElement('div');
+    document.body.appendChild(newContainer);
+    expect(() => createTodoApp(newContainer)).not.toThrow();
+
+    const todoList = newContainer.querySelector('#todo-list');
+    expect(todoList.children).toHaveLength(0);
+
+    document.body.removeChild(newContainer);
+  });
+
+  test('should maintain nextId across sessions', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+
+    // TODOを追加
+    input.value = 'TODO 1';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // 保存されたデータを確認
+    const firstSave = JSON.parse(localStorage.getItem('todos'));
+    const firstId = firstSave[0].id;
+
+    // 新しいコンテナでアプリを再初期化
+    const newContainer = document.createElement('div');
+    document.body.appendChild(newContainer);
+    createTodoApp(newContainer);
+
+    const newForm = newContainer.querySelector('#todo-form');
+    const newInput = newForm.querySelector('input[type="text"]');
+
+    // 新しいTODOを追加
+    newInput.value = 'TODO 2';
+    newForm.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // IDが重複していないことを確認
+    const secondSave = JSON.parse(localStorage.getItem('todos'));
+    expect(secondSave).toHaveLength(2);
+    expect(secondSave[1].id).toBeGreaterThan(firstId);
+
+    document.body.removeChild(newContainer);
   });
 });

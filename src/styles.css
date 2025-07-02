@@ -32,9 +32,113 @@
   --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ダークモード */
+[data-theme="dark"] {
+  /* カラーパレット - 深い暗色調 */
+  --primary-color: #00e5cc;
+  --primary-hover: #00bfa5;
+  --primary-light: #004d40;
+  --secondary-color: #7c4dff;
+  --danger-color: #ff5252;
+  --danger-hover: #ff6e6e;
+  
+  /* 背景とサーフェス */
+  --bg-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  --surface-bg: rgba(30, 30, 45, 0.85);
+  --surface-hover: rgba(40, 40, 55, 0.95);
+  
+  /* テキストカラー */
+  --text-primary: #e0e0e0;
+  --text-secondary: #9e9e9e;
+  --text-disabled: #616161;
+  
+  /* ボーダーとシャドウ */
+  --border-color: rgba(255, 255, 255, 0.12);
+  --border-light: rgba(255, 255, 255, 0.08);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* ダークモード専用スタイル調整 */
+[data-theme="dark"] body::before {
+  background: radial-gradient(circle, rgba(0, 229, 204, 0.05) 0%, transparent 70%);
+}
+
+[data-theme="dark"] h1 {
+  text-shadow: 0 2px 16px rgba(0, 229, 204, 0.3);
+}
+
+[data-theme="dark"] main::before {
+  background: linear-gradient(135deg, transparent 0%, rgba(30, 30, 45, 0.3) 100%);
+}
+
+[data-theme="dark"] #todo-form input[type="text"],
+[data-theme="dark"] .search-input {
+  background: rgba(40, 40, 55, 0.9);
+}
+
+[data-theme="dark"] #todo-form input[type="text"]:focus,
+[data-theme="dark"] .search-input:focus {
+  background: rgba(50, 50, 65, 0.95);
+}
+
+[data-theme="dark"] .filter-button {
+  background: rgba(40, 40, 55, 0.8);
+}
+
+[data-theme="dark"] .filter-button:hover {
+  background: rgba(50, 50, 65, 0.95);
+}
+
+[data-theme="dark"] #todo-list li {
+  background: rgba(40, 40, 55, 0.8);
+}
+
+[data-theme="dark"] #todo-list li:hover {
+  background: rgba(50, 50, 65, 0.95);
+}
+
+[data-theme="dark"] #todo-list li.completed {
+  background: rgba(30, 30, 40, 0.5);
+}
+
+[data-theme="dark"] #todo-list input[type="checkbox"] {
+  background: rgba(50, 50, 65, 0.9);
+}
+
+[data-theme="dark"] .edit-input {
+  background: rgba(50, 50, 65, 0.9);
+}
+
+[data-theme="dark"] mark {
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(255, 152, 0, 0.3) 100%);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .todo-item.drag-over {
+  background: rgba(0, 229, 204, 0.15);
+  box-shadow: 0 0 0 4px rgba(0, 229, 204, 0.3);
+}
+
 /* リセットとベース */
 * {
   box-sizing: border-box;
+}
+
+/* テーマ切り替えトランジション */
+body,
+main,
+header,
+#todo-list li,
+.filter-button,
+#todo-form input[type="text"],
+.search-input,
+.theme-toggle {
+  transition: background-color var(--transition-base), 
+              color var(--transition-base), 
+              border-color var(--transition-base),
+              box-shadow var(--transition-base);
 }
 
 body {
@@ -81,6 +185,7 @@ header {
   text-align: center;
   margin-bottom: 40px;
   animation: fadeInDown 0.6s ease-out;
+  position: relative;
 }
 
 h1 {
@@ -93,6 +198,44 @@ h1 {
   background-clip: text;
   letter-spacing: -0.02em;
   text-shadow: 0 2px 16px rgba(0, 191, 165, 0.2);
+}
+
+/* テーマトグル */
+.theme-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface-bg);
+  border: 2px solid var(--border-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-toggle:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary-color);
+  transform: scale(1.1);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-toggle:active {
+  transform: scale(0.95);
+}
+
+.theme-icon {
+  font-size: 24px;
+  transition: transform var(--transition-base);
+}
+
+.theme-toggle:hover .theme-icon {
+  transform: rotate(20deg);
 }
 
 /* メインコンテナ - グラスモーフィズム */
@@ -504,5 +647,63 @@ mark {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ドラッグ&ドロップのスタイル */
+.todo-item {
+  cursor: grab;
+  transition: all var(--transition-base);
+}
+
+.todo-item:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.todo-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  transform: scale(0.95);
+  box-shadow: none;
+}
+
+.todo-item.drag-over {
+  background: rgba(0, 191, 165, 0.1);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(0, 191, 165, 0.2);
+  transform: scale(1.02);
+}
+
+/* ドラッグ中のゴーストイメージ */
+.todo-item.dragging::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 191, 165, 0.1);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+/* キーボード操作時の視覚的フィードバック */
+.todo-item:focus:active {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 191, 165, 0.3);
+}
+
+/* タッチデバイス用のスタイル */
+@media (hover: none) and (pointer: coarse) {
+  .todo-item {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .todo-item:active {
+    transform: scale(0.98);
+    opacity: 0.8;
   }
 }

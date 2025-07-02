@@ -1,6 +1,7 @@
 ## 00-基本情報
 
-**プロジェクト**: @.claude/project.md
+**プロジェクト概要**: まず最初に@wiki/Home.mdでプロジェクトの全体像を確認すること
+**プロジェクト詳細**: @.claude/project.md
 **技術スタック**: @.claude/tech-stack.md
 **開発方式**: TDD (Test-Driven Development)
 
@@ -37,4 +38,10 @@
 - 複雑なエラー解決時
 
 詳細: @.claude/ai-guidelines.md
+
+## 05-Linear Issue 報告
+
+タスク完了時は必ずLinear Issueに実装内容を報告する。
+
+詳細: @.claude/linear-issue-reporting.md
 

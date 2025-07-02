@@ -979,3 +979,598 @@ describe('Search Functionality', () => {
     }, 400);
   }, 10000);
 });
+
+describe('TODO App Drag and Drop', () => {
+  let container;
+  let app;
+
+  beforeEach(() => {
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    
+    // Mock DragEvent for jsdom
+    global.DragEvent = class DragEvent extends Event {
+      constructor(type, eventInitDict) {
+        super(type, eventInitDict);
+        this.dataTransfer = eventInitDict?.dataTransfer || {
+          setData: jest.fn(),
+          getData: jest.fn(),
+          effectAllowed: null,
+          dropEffect: null
+        };
+      }
+    };
+    
+    app = createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    localStorage.clear();
+  });
+
+  test('should make todo items draggable', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // 複数のTODOを追加
+    ['TODO 1', 'TODO 2', 'TODO 3'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    const todoItems = container.querySelectorAll('.todo-item');
+    todoItems.forEach(item => {
+      expect(item).toHaveAttribute('draggable', 'true');
+    });
+  });
+
+  test('should add order property to todos', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // TODOを追加
+    input.value = 'Test TODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // LocalStorageから読み込んで確認
+    const savedTodos = JSON.parse(localStorage.getItem('todos'));
+    expect(savedTodos[0]).toHaveProperty('order');
+    expect(savedTodos[0].order).toBe(0);
+  });
+
+  test('should maintain order when adding multiple todos', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // 複数のTODOを追加
+    ['First', 'Second', 'Third'].forEach((text, index) => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    const savedTodos = JSON.parse(localStorage.getItem('todos'));
+    expect(savedTodos[0].order).toBe(0);
+    expect(savedTodos[1].order).toBe(1);
+    expect(savedTodos[2].order).toBe(2);
+  });
+
+  test('should handle dragstart event', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    input.value = 'Draggable TODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    const todoItem = container.querySelector('.todo-item');
+    const dataTransfer = {
+      setData: jest.fn(),
+      effectAllowed: null
+    };
+
+    const dragEvent = new DragEvent('dragstart', { 
+      bubbles: true,
+      dataTransfer: dataTransfer 
+    });
+    Object.defineProperty(dragEvent, 'dataTransfer', {
+      value: dataTransfer,
+      writable: false
+    });
+
+    todoItem.dispatchEvent(dragEvent);
+    
+    expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', expect.any(String));
+    expect(dataTransfer.effectAllowed).toBe('move');
+    expect(todoItem.classList.contains('dragging')).toBe(true);
+  });
+
+  test('should handle dragend event', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    input.value = 'Draggable TODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    const todoItem = container.querySelector('.todo-item');
+    todoItem.classList.add('dragging');
+    
+    const dragEndEvent = new DragEvent('dragend', { bubbles: true });
+    todoItem.dispatchEvent(dragEndEvent);
+    
+    expect(todoItem.classList.contains('dragging')).toBe(false);
+  });
+
+  test('should reorder todos on drop', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // 3つのTODOを追加
+    ['First', 'Second', 'Third'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // ドラッグ&ドロップをシミュレート（FirstをThirdの後に移動）
+    const todoItems = container.querySelectorAll('.todo-item');
+    const firstItem = todoItems[0];
+    const thirdItem = todoItems[2];
+
+    // Get the actual todo IDs
+    const firstTodoId = firstItem.dataset.todoId;
+    
+    // dragstart
+    const dataTransfer = {
+      setData: jest.fn(),
+      getData: jest.fn().mockReturnValue(firstTodoId), // First itemのID
+      effectAllowed: null
+    };
+    
+    const dragStartEvent = new DragEvent('dragstart', { 
+      bubbles: true,
+      dataTransfer: dataTransfer 
+    });
+    Object.defineProperty(dragStartEvent, 'dataTransfer', {
+      value: dataTransfer,
+      writable: false
+    });
+    firstItem.dispatchEvent(dragStartEvent);
+
+    // drop on third item
+    const dropEvent = new DragEvent('drop', { 
+      bubbles: true,
+      dataTransfer: dataTransfer 
+    });
+    Object.defineProperty(dropEvent, 'dataTransfer', {
+      value: dataTransfer,
+      writable: false
+    });
+    thirdItem.dispatchEvent(dropEvent);
+
+    // 順序が変更されたことを確認
+    const updatedTodos = JSON.parse(localStorage.getItem('todos'));
+    const sortedTodos = updatedTodos.sort((a, b) => a.order - b.order);
+    
+    expect(sortedTodos[0].text).toBe('Second');
+    expect(sortedTodos[1].text).toBe('Third');
+    expect(sortedTodos[2].text).toBe('First');
+  });
+
+  test('should handle keyboard reordering with Shift+ArrowUp', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // 複数のTODOを追加
+    ['First', 'Second', 'Third'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    const todoItems = container.querySelectorAll('.todo-item');
+    const secondItem = todoItems[1];
+    
+    // フォーカスを設定
+    secondItem.focus();
+    
+    // Shift+ArrowUpキーイベント
+    const keyEvent = new KeyboardEvent('keydown', {
+      key: 'ArrowUp',
+      shiftKey: true,
+      bubbles: true
+    });
+    secondItem.dispatchEvent(keyEvent);
+
+    // 順序が変更されたことを確認
+    const updatedTodos = JSON.parse(localStorage.getItem('todos'));
+    const sortedTodos = updatedTodos.sort((a, b) => a.order - b.order);
+    
+    expect(sortedTodos[0].text).toBe('Second');
+    expect(sortedTodos[1].text).toBe('First');
+  });
+
+  test('should handle keyboard reordering with Shift+ArrowDown', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // 複数のTODOを追加
+    ['First', 'Second', 'Third'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    const todoItems = container.querySelectorAll('.todo-item');
+    const secondItem = todoItems[1];
+    
+    // フォーカスを設定
+    secondItem.focus();
+    
+    // Shift+ArrowDownキーイベント
+    const keyEvent = new KeyboardEvent('keydown', {
+      key: 'ArrowDown',
+      shiftKey: true,
+      bubbles: true
+    });
+    secondItem.dispatchEvent(keyEvent);
+
+    // 順序が変更されたことを確認
+    const updatedTodos = JSON.parse(localStorage.getItem('todos'));
+    const sortedTodos = updatedTodos.sort((a, b) => a.order - b.order);
+    
+    expect(sortedTodos[1].text).toBe('Third');
+    expect(sortedTodos[2].text).toBe('Second');
+  });
+
+  test('should add visual feedback during drag', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // 複数のTODOを追加
+    ['First', 'Second'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    const todoItems = container.querySelectorAll('.todo-item');
+    const secondItem = todoItems[1];
+
+    // dragover イベント
+    const dragOverEvent = new DragEvent('dragover', { bubbles: true });
+    secondItem.dispatchEvent(dragOverEvent);
+    
+    expect(secondItem.classList.contains('drag-over')).toBe(true);
+
+    // dragleave イベント
+    const dragLeaveEvent = new DragEvent('dragleave', { bubbles: true });
+    secondItem.dispatchEvent(dragLeaveEvent);
+    
+    expect(secondItem.classList.contains('drag-over')).toBe(false);
+  });
+});
+
+describe('TODO App Statistics', () => {
+  let container;
+  let app;
+
+  beforeEach(() => {
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    localStorage.clear();
+  });
+
+  test('should show statistics tab', () => {
+    // 統計タブが存在することを確認
+    const statsTab = container.querySelector('[data-tab="stats"]');
+    expect(statsTab).toBeInTheDocument();
+    expect(statsTab).toHaveTextContent('統計');
+  });
+
+  test('should calculate basic statistics', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // TODOを追加
+    ['Task 1', 'Task 2', 'Task 3'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // いくつかを完了にする
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    checkboxes[0].click();
+    checkboxes[1].click();
+
+    // 統計タブをクリック
+    const statsTab = container.querySelector('[data-tab="stats"]');
+    statsTab.click();
+
+    // 統計が表示されることを確認
+    const totalCount = container.querySelector('.stat-total');
+    const completedCount = container.querySelector('.stat-completed');
+    const incompleteCount = container.querySelector('.stat-incomplete');
+    const completionRate = container.querySelector('.stat-completion-rate');
+
+    expect(totalCount).toHaveTextContent('3');
+    expect(completedCount).toHaveTextContent('2');
+    expect(incompleteCount).toHaveTextContent('1');
+    expect(completionRate).toHaveTextContent('66.7%');
+  });
+
+  test('should track creation and completion dates', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // TODOを追加
+    input.value = 'Test Task';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // LocalStorageから確認
+    let todos = JSON.parse(localStorage.getItem('todos'));
+    expect(todos[0].createdAt).toBeDefined();
+    expect(todos[0].completedAt).toBeUndefined();
+
+    // 完了にする
+    const checkbox = container.querySelector('input[type="checkbox"]');
+    checkbox.click();
+
+    // 完了日時が記録されることを確認
+    todos = JSON.parse(localStorage.getItem('todos'));
+    expect(todos[0].completedAt).toBeDefined();
+  });
+
+  test('should show daily completion chart', () => {
+    // 統計タブをクリック
+    const statsTab = container.querySelector('[data-tab="stats"]');
+    statsTab.click();
+
+    // チャートコンテナが存在することを確認
+    const chartContainer = container.querySelector('.daily-chart');
+    expect(chartContainer).toBeInTheDocument();
+    
+    // Canvas要素が存在することを確認
+    const canvas = chartContainer.querySelector('canvas');
+    expect(canvas).toBeInTheDocument();
+  });
+
+  test('should export statistics as JSON', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    
+    // TODOを追加
+    ['Task 1', 'Task 2'].forEach(text => {
+      input.value = text;
+      form.dispatchEvent(new Event('submit', { bubbles: true }));
+    });
+
+    // 統計タブをクリック
+    const statsTab = container.querySelector('[data-tab="stats"]');
+    statsTab.click();
+
+    // エクスポートボタンをクリック
+    const exportBtn = container.querySelector('.export-json');
+    
+    // ダウンロードをモック
+    const mockLink = {
+      click: jest.fn(),
+      setAttribute: jest.fn(),
+      style: {}
+    };
+    jest.spyOn(document, 'createElement').mockReturnValueOnce(mockLink);
+    
+    exportBtn.click();
+
+    expect(mockLink.setAttribute).toHaveBeenCalledWith('download', expect.stringContaining('todo-stats-'));
+    expect(mockLink.click).toHaveBeenCalled();
+  });
+
+  test('should show completion streak', () => {
+    // 統計タブをクリック
+    const statsTab = container.querySelector('[data-tab="stats"]');
+    statsTab.click();
+
+    // ストリーク表示が存在することを確認
+    const streakDisplay = container.querySelector('.stat-streak');
+    expect(streakDisplay).toBeInTheDocument();
+    expect(streakDisplay).toHaveTextContent('0日');
+  });
+
+  test('should filter statistics by date range', () => {
+    // 統計タブをクリック
+    const statsTab = container.querySelector('[data-tab="stats"]');
+    statsTab.click();
+
+    // 日付範囲フィルターが存在することを確認
+    const dateRangeSelect = container.querySelector('.date-range-filter');
+    expect(dateRangeSelect).toBeInTheDocument();
+    
+    // オプションを確認
+    const options = dateRangeSelect.querySelectorAll('option');
+    expect(options[0]).toHaveTextContent('今日');
+    expect(options[1]).toHaveTextContent('今週');
+    expect(options[2]).toHaveTextContent('今月');
+    expect(options[3]).toHaveTextContent('全期間');
+  });
+});
+
+describe('Dark Mode Functionality', () => {
+  let container;
+  let matchMediaMock;
+
+  beforeEach(() => {
+    // window.matchMediaをモック
+    matchMediaMock = {
+      matches: false,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
+    };
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: jest.fn().mockImplementation(() => matchMediaMock)
+    });
+
+    // localStorageをクリア
+    localStorage.clear();
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    createTodoApp(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    jest.restoreAllMocks();
+  });
+
+  test('should have theme toggle button', () => {
+    const themeToggle = container.querySelector('.theme-toggle');
+    expect(themeToggle).toBeInTheDocument();
+    expect(themeToggle).toHaveAttribute('aria-label');
+    expect(themeToggle).toHaveAttribute('title', 'ダークモード切り替え');
+  });
+
+  test('should toggle theme when button is clicked', () => {
+    const themeToggle = container.querySelector('.theme-toggle');
+    const themeIcon = container.querySelector('.theme-icon');
+
+    // 初期状態はライトモード
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    expect(themeIcon.textContent).toBe('🌙');
+    expect(themeToggle.getAttribute('aria-label')).toBe('ダークモードに切り替え');
+
+    // ダークモードに切り替え
+    themeToggle.click();
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(themeIcon.textContent).toBe('☀️');
+    expect(themeToggle.getAttribute('aria-label')).toBe('ライトモードに切り替え');
+
+    // ライトモードに戻す
+    themeToggle.click();
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    expect(themeIcon.textContent).toBe('🌙');
+  });
+
+  test('should persist theme preference in localStorage', () => {
+    const themeToggle = container.querySelector('.theme-toggle');
+
+    // ダークモードに切り替え
+    themeToggle.click();
+    expect(localStorage.getItem('theme')).toBe('dark');
+
+    // ライトモードに戻す
+    themeToggle.click();
+    expect(localStorage.getItem('theme')).toBe('light');
+  });
+
+  test('should respect system preference when no saved theme', () => {
+    // システムがダークモードを好む場合
+    matchMediaMock.matches = true;
+
+    // 新しいアプリインスタンスを作成
+    const newContainer = document.createElement('div');
+    document.body.appendChild(newContainer);
+    createTodoApp(newContainer);
+
+    // ダークモードが適用されているか確認
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+
+    document.body.removeChild(newContainer);
+  });
+
+  test('should load saved theme preference on initialization', () => {
+    // ダークモードを保存
+    localStorage.setItem('theme', 'dark');
+
+    // 新しいアプリインスタンスを作成
+    const newContainer = document.createElement('div');
+    document.body.appendChild(newContainer);
+    createTodoApp(newContainer);
+
+    // 保存されたテーマが適用されているか確認
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    const themeIcon = newContainer.querySelector('.theme-icon');
+    expect(themeIcon.textContent).toBe('☀️');
+
+    document.body.removeChild(newContainer);
+  });
+
+  test('should update theme when system preference changes', () => {
+    // システム設定の変更リスナーを取得
+    const changeListener = matchMediaMock.addEventListener.mock.calls[0][1];
+
+    // システムがダークモードに変更
+    changeListener({ matches: true });
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+
+    // システムがライトモードに変更
+    changeListener({ matches: false });
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+  });
+
+  test('should not change theme on system preference change if user has set preference', () => {
+    const themeToggle = container.querySelector('.theme-toggle');
+
+    // ユーザーがダークモードを選択
+    themeToggle.click();
+    expect(localStorage.getItem('theme')).toBe('dark');
+
+    // システム設定の変更リスナーを取得
+    const changeListener = matchMediaMock.addEventListener.mock.calls[0][1];
+
+    // システムがライトモードに変更されても、ユーザー設定を維持
+    changeListener({ matches: false });
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+  });
+
+  test('should handle environments without matchMedia gracefully', () => {
+    // matchMediaが存在しない環境をシミュレート
+    delete window.matchMedia;
+
+    // 新しいアプリインスタンスを作成
+    const newContainer = document.createElement('div');
+    document.body.appendChild(newContainer);
+
+    // エラーなく初期化されることを確認
+    expect(() => {
+      createTodoApp(newContainer);
+    }).not.toThrow();
+
+    // デフォルトのライトモードが適用されているか確認
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+
+    document.body.removeChild(newContainer);
+  });
+
+  test('should maintain visual hierarchy in dark mode', () => {
+    const themeToggle = container.querySelector('.theme-toggle');
+
+    // ダークモードに切り替え
+    themeToggle.click();
+
+    // すべての主要な要素が存在し、機能することを確認
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const addButton = form.querySelector('button[type="submit"]');
+    const searchInput = container.querySelector('.search-input');
+    const filterButtons = container.querySelectorAll('.filter-button');
+
+    expect(form).toBeInTheDocument();
+    expect(input).toBeInTheDocument();
+    expect(addButton).toBeInTheDocument();
+    expect(searchInput).toBeInTheDocument();
+    expect(filterButtons.length).toBeGreaterThan(0);
+
+    // TODOを追加してレンダリングを確認
+    input.value = 'ダークモードでのテストTODO';
+    addButton.click();
+
+    const todoItem = container.querySelector('#todo-list li');
+    expect(todoItem).toBeInTheDocument();
+    expect(todoItem.textContent).toContain('ダークモードでのテストTODO');
+  });
+});

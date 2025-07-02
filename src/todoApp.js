@@ -30,10 +30,20 @@ function createTodoApp(container) {
   let todos = [];
   let nextId = 1;
   let editingId = null;
+  let currentFilter = 'all';
   
   function render() {
     todoList.innerHTML = '';
-    todos.forEach(todo => {
+    
+    // フィルター条件に基づいてTODOを表示
+    const filteredTodos = todos.filter(todo => {
+      if (currentFilter === 'all') return true;
+      if (currentFilter === 'incomplete') return !todo.completed;
+      if (currentFilter === 'completed') return todo.completed;
+      return true;
+    });
+    
+    filteredTodos.forEach(todo => {
       const li = document.createElement('li');
       if (todo.completed) {
         li.classList.add('completed');
@@ -125,6 +135,23 @@ function createTodoApp(container) {
     render();
     input.value = '';
   });
+  
+  // フィルターボタンのイベント設定
+  const filterButtons = container.querySelectorAll('.filter-button');
+  filterButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      currentFilter = button.getAttribute('data-filter');
+      
+      // アクティブクラスを更新
+      filterButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      
+      render();
+    });
+  });
+  
+  // 初期状態で全てボタンをアクティブに
+  container.querySelector('[data-filter="all"]').classList.add('active');
   
   return {
     container,

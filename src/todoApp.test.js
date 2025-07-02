@@ -324,4 +324,95 @@ describe('TODO App Functionality', () => {
     expect(todoList.children[0].textContent).toContain('空にできないTODO');
     expect(todoList.children[0].querySelector('.edit-input')).not.toBeInTheDocument();
   });
+
+  test('should filter todos by completion status', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+
+    // 完了と未完了のTODOを追加
+    input.value = '未完了TODO1';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+    input.value = '未完了TODO2';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+    input.value = '完了TODO';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // 3番目のTODOを完了にする
+    const checkbox = todoList.children[2].querySelector('input[type="checkbox"]');
+    checkbox.click();
+
+    // 全て表示（デフォルト）
+    expect(todoList.children).toHaveLength(3);
+
+    // 未完了フィルター
+    const incompleteButton = container.querySelector('[data-filter="incomplete"]');
+    incompleteButton.click();
+    expect(todoList.children).toHaveLength(2);
+    expect(todoList.children[0].textContent).toContain('未完了TODO1');
+    expect(todoList.children[1].textContent).toContain('未完了TODO2');
+
+    // 完了済みフィルター
+    const completedButton = container.querySelector('[data-filter="completed"]');
+    completedButton.click();
+    expect(todoList.children).toHaveLength(1);
+    expect(todoList.children[0].textContent).toContain('完了TODO');
+
+    // 全て表示に戻す
+    const allButton = container.querySelector('[data-filter="all"]');
+    allButton.click();
+    expect(todoList.children).toHaveLength(3);
+  });
+
+  test('should highlight active filter button', () => {
+    const allButton = container.querySelector('[data-filter="all"]');
+    const incompleteButton = container.querySelector('[data-filter="incomplete"]');
+    const completedButton = container.querySelector('[data-filter="completed"]');
+
+    // デフォルトは全てボタンがアクティブ
+    expect(allButton.classList.contains('active')).toBe(true);
+    expect(incompleteButton.classList.contains('active')).toBe(false);
+    expect(completedButton.classList.contains('active')).toBe(false);
+
+    // 未完了ボタンをクリック
+    incompleteButton.click();
+    expect(allButton.classList.contains('active')).toBe(false);
+    expect(incompleteButton.classList.contains('active')).toBe(true);
+    expect(completedButton.classList.contains('active')).toBe(false);
+
+    // 完了済みボタンをクリック
+    completedButton.click();
+    expect(allButton.classList.contains('active')).toBe(false);
+    expect(incompleteButton.classList.contains('active')).toBe(false);
+    expect(completedButton.classList.contains('active')).toBe(true);
+  });
+
+  test('should persist filter when adding or toggling todos', () => {
+    const form = container.querySelector('#todo-form');
+    const input = form.querySelector('input[type="text"]');
+    const todoList = container.querySelector('#todo-list');
+    const incompleteButton = container.querySelector('[data-filter="incomplete"]');
+
+    // TODOを追加
+    input.value = 'TODO1';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+    input.value = 'TODO2';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+
+    // 最初のTODOを完了にする
+    let checkbox = todoList.children[0].querySelector('input[type="checkbox"]');
+    checkbox.click();
+
+    // 未完了フィルターを適用
+    incompleteButton.click();
+    expect(todoList.children).toHaveLength(1);
+    expect(todoList.children[0].textContent).toContain('TODO2');
+
+    // 新しいTODOを追加（フィルターが維持されているか確認）
+    input.value = 'TODO3';
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+    expect(todoList.children).toHaveLength(2);
+    expect(todoList.children[0].textContent).toContain('TODO2');
+    expect(todoList.children[1].textContent).toContain('TODO3');
+  });
 });

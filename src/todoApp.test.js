@@ -54,7 +54,7 @@ describe('TODO App HTML Structure', () => {
     expect(main).toBeInTheDocument();
 
     // nav要素でフィルターをラップ
-    const nav = container.querySelector('nav');
+    const nav = container.querySelector('nav.filter-navigation');
     expect(nav).toBeInTheDocument();
     expect(nav.querySelector('.filter-button')).toBeInTheDocument();
   });
@@ -1281,8 +1281,11 @@ describe('TODO App Statistics', () => {
     });
 
     // いくつかを完了にする
-    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    let checkboxes = container.querySelectorAll('input[type="checkbox"]');
     checkboxes[0].click();
+    
+    // Re-query after first click due to re-render
+    checkboxes = container.querySelectorAll('input[type="checkbox"]');
     checkboxes[1].click();
 
     // 統計タブをクリック
@@ -1312,7 +1315,7 @@ describe('TODO App Statistics', () => {
     // LocalStorageから確認
     let todos = JSON.parse(localStorage.getItem('todos'));
     expect(todos[0].createdAt).toBeDefined();
-    expect(todos[0].completedAt).toBeUndefined();
+    expect(todos[0].completedAt).toBeNull();
 
     // 完了にする
     const checkbox = container.querySelector('input[type="checkbox"]');

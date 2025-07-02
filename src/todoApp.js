@@ -632,7 +632,16 @@ function createTodoApp(container) {
     const canvas = container.querySelector('#daily-chart');
     if (!canvas) return;
     
-    const ctx = canvas.getContext('2d');
+    // Check if canvas supports getContext (for testing environments)
+    if (typeof canvas.getContext !== 'function') return;
+    
+    let ctx;
+    try {
+      ctx = canvas.getContext('2d');
+    } catch (e) {
+      // Canvas API not available in test environment
+      return;
+    }
     if (!ctx) return;
     
     // 簡易的なチャート描画

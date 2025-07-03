@@ -487,8 +487,8 @@ nav {
 /* 削除ボタン */
 .delete-button {
   padding: 8px 16px;
-  background: rgba(255, 82, 82, 0.1);
-  color: var(--danger-color);
+  background: var(--danger-color);
+  color: white;
   border: 2px solid var(--danger-color);
   border-radius: 8px;
   cursor: pointer;
@@ -500,7 +500,7 @@ nav {
 }
 
 .delete-button:hover {
-  background: var(--danger-color);
+  background: var(--danger-hover);
   color: white;
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(255, 82, 82, 0.3);

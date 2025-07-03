@@ -392,4 +392,12 @@ class KeyboardShortcuts {
   }
 }
 
-module.exports = { KeyboardShortcuts };
+// ブラウザ環境での使用のためにグローバルスコープに公開
+if (typeof window !== 'undefined') {
+  window.KeyboardShortcuts = KeyboardShortcuts;
+}
+
+// Node.js環境でのテスト用にエクスポート
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { KeyboardShortcuts };
+}

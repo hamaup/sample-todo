@@ -21,8 +21,8 @@ function createTodoApp(container) {
               aria-label="TODO入力"
             />
             <input 
-              type="date" 
-              aria-label="期限日"
+              type="datetime-local" 
+              aria-label="期限日時"
               class="due-date-input"
             />
             <button type="submit">追加</button>
@@ -222,6 +222,35 @@ function createTodoApp(container) {
   
   function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  
+  // 日時フォーマット関数
+  function formatDueDate(isoString) {
+    if (!isoString) return '';
+    
+    const date = new Date(isoString);
+    
+    // 日付のみの形式かチェック（YYYY-MM-DD形式の場合、時間部分は00:00:00になる）
+    const isDateOnly = isoString.match(/^\d{4}-\d{2}-\d{2}$/) || 
+                      (date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && !isoString.includes('T'));
+    
+    if (isDateOnly) {
+      // 日付のみ表示
+      return date.toLocaleDateString('ja-JP', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    } else {
+      // 日時を表示
+      return date.toLocaleString('ja-JP', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric'
+      });
+    }
   }
   
   // デバウンス関数
@@ -624,9 +653,20 @@ function createTodoApp(container) {
         editInput.value = todo.text;
         
         const editDateInput = document.createElement('input');
-        editDateInput.type = 'date';
+        editDateInput.type = 'datetime-local';
         editDateInput.className = 'edit-date-input';
-        editDateInput.value = todo.dueDate || '';
+        
+        // 既存のdueDateをdatetime-local形式に変換
+        if (todo.dueDate) {
+          const date = new Date(todo.dueDate);
+          // YYYY-MM-DDTHH:mm形式に変換
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          editDateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
         
         let isFinished = false;
         
@@ -638,7 +678,13 @@ function createTodoApp(container) {
             const newText = editInput.value.trim();
             if (newText !== '') {
               todo.text = newText;
-              todo.dueDate = editDateInput.value || null;
+              // datetime-localの値をISO形式に変換
+              if (editDateInput.value) {
+                const localDateTime = new Date(editDateInput.value);
+                todo.dueDate = localDateTime.toISOString();
+              } else {
+                todo.dueDate = null;
+              }
               saveToLocalStorage();
             }
           }
@@ -731,20 +777,27 @@ function createTodoApp(container) {
           const dueDateSpan = document.createElement('span');
           dueDateSpan.className = 'due-date';
           
-          // 日付をフォーマット (YYYY-MM-DD -> YYYY/MM/DD)
-          const formattedDate = todo.dueDate.replace(/-/g, '/');
+          // 日時をフォーマット
+          const formattedDate = formatDueDate(todo.dueDate);
           dueDateSpan.textContent = `期限: ${formattedDate}`;
           
           // 期限日の状態をチェック
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
+          const now = new Date();
           const dueDate = new Date(todo.dueDate);
-          dueDate.setHours(0, 0, 0, 0);
           
-          if (dueDate < today) {
+          // 期限切れチェック（現在時刻と比較）
+          if (dueDate < now) {
             li.classList.add('overdue');
-          } else if (dueDate.getTime() === today.getTime()) {
-            li.classList.add('due-today');
+          } else {
+            // 本日期限チェック（日付部分のみ比較）
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dueDateOnly = new Date(dueDate);
+            dueDateOnly.setHours(0, 0, 0, 0);
+            
+            if (dueDateOnly.getTime() === today.getTime()) {
+              li.classList.add('due-today');
+            }
           }
           
           label.appendChild(dueDateSpan);
@@ -824,8 +877,14 @@ function createTodoApp(container) {
     const text = input.value.trim();
     if (text === '') return;
     
-    const dueDateInput = form.querySelector('input[type="date"]');
-    const dueDate = dueDateInput ? dueDateInput.value : null;
+    const dueDateTimeInput = form.querySelector('input[type="datetime-local"]');
+    let dueDate = null;
+    
+    if (dueDateTimeInput && dueDateTimeInput.value) {
+      // datetime-localの値をISO 8601形式に変換
+      const localDateTime = new Date(dueDateTimeInput.value);
+      dueDate = localDateTime.toISOString();
+    }
     
     todos.push({
       id: nextId++,
@@ -840,7 +899,7 @@ function createTodoApp(container) {
     saveToLocalStorage();
     render();
     input.value = '';
-    if (dueDateInput) dueDateInput.value = '';
+    if (dueDateTimeInput) dueDateTimeInput.value = '';
   });
   
   // フィルターボタンのイベント設定
@@ -1635,6 +1694,7 @@ function createTodoApp(container) {
     render, // テスト用に公開
     renderTodos, // テスト用に公開
     duplicateTodo, // ショートカット用に公開
+    formatDueDate, // テスト用に公開
     get todos() { return todos; }, // テスト用にgetter経由で公開
     set todos(value) { todos = value; } // テスト用にsetter経由で公開
   };

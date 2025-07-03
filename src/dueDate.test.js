@@ -18,18 +18,18 @@ describe('TODO期限日機能', () => {
 
   describe('期限日の入力', () => {
     it('フォームに期限日入力フィールドが存在する', () => {
-      const dueDateInput = app.form.querySelector('input[type="date"]');
+      const dueDateInput = app.form.querySelector('input[type="datetime-local"]');
       expect(dueDateInput).toBeTruthy();
-      expect(dueDateInput.getAttribute('aria-label')).toBe('期限日');
+      expect(dueDateInput.getAttribute('aria-label')).toBe('期限日時');
     });
 
     it('期限日付きのTODOを追加できる', () => {
       const textInput = app.form.querySelector('input[type="text"]');
-      const dueDateInput = app.form.querySelector('input[type="date"]');
+      const dueDateInput = app.form.querySelector('input[type="datetime-local"]');
       const submitButton = app.form.querySelector('button[type="submit"]');
       
       textInput.value = '期限付きタスク';
-      dueDateInput.value = '2025-12-31';
+      dueDateInput.value = '2025-12-31T14:30';  // datetime-local形式
       submitButton.click();
 
       const todoItems = app.todoList.querySelectorAll('.todo-item');
@@ -37,7 +37,7 @@ describe('TODO期限日機能', () => {
       
       const dueDateDisplay = todoItems[0].querySelector('.due-date');
       expect(dueDateDisplay).toBeTruthy();
-      expect(dueDateDisplay.textContent).toContain('2025/12/31');
+      expect(dueDateDisplay.textContent).toMatch(/2025.*12.*31/);
     });
 
     it('期限日なしのTODOも追加できる', () => {
@@ -68,7 +68,7 @@ describe('TODO期限日機能', () => {
       const todoItem = app.todoList.querySelector('.todo-item');
       const dueDateDisplay = todoItem.querySelector('.due-date');
       expect(dueDateDisplay).toBeTruthy();
-      expect(dueDateDisplay.textContent).toContain('期限: 2025/12/31');
+      expect(dueDateDisplay.textContent).toMatch(/期限.*2025.*12.*31/);
     });
 
     it('期限日が過ぎたTODOは強調表示される', () => {
@@ -89,13 +89,14 @@ describe('TODO期限日機能', () => {
     });
 
     it('本日が期限のTODOは警告表示される', () => {
-      const today = new Date().toISOString().split('T')[0];
-
+      const today = new Date();
+      today.setHours(23, 59, 0, 0); // 本日の23:59に設定
+      
       app.todos = [{
         id: 1,
         text: '本日期限タスク',
         completed: false,
-        dueDate: today
+        dueDate: today.toISOString()
       }];
       app.renderTodos();
 
@@ -107,16 +108,17 @@ describe('TODO期限日機能', () => {
   describe('期限日のlocalStorage保存', () => {
     it('期限日付きTODOがlocalStorageに保存される', () => {
       const textInput = app.form.querySelector('input[type="text"]');
-      const dueDateInput = app.form.querySelector('input[type="date"]');
+      const dueDateInput = app.form.querySelector('input[type="datetime-local"]');
       const submitButton = app.form.querySelector('button[type="submit"]');
       
       textInput.value = '保存テストタスク';
-      dueDateInput.value = '2025-12-31';
+      dueDateInput.value = '2025-12-31T14:30';  // datetime-local形式
       submitButton.click();
 
       const savedTodos = JSON.parse(window.localStorage.getItem('todos'));
       expect(savedTodos.length).toBe(1);
-      expect(savedTodos[0].dueDate).toBe('2025-12-31');
+      // ISO形式で保存されているか確認
+      expect(savedTodos[0].dueDate).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
 
     it('期限日付きTODOが復元される', () => {
@@ -136,7 +138,7 @@ describe('TODO期限日機能', () => {
       const dueDateDisplay = todoItem.querySelector('.due-date');
       
       expect(dueDateDisplay).toBeTruthy();
-      expect(dueDateDisplay.textContent).toContain('2025/12/31');
+      expect(dueDateDisplay.textContent).toMatch(/2025.*12.*31/);
       
       // クリーンアップ
       document.body.removeChild(newContainer);
@@ -156,14 +158,15 @@ describe('TODO期限日機能', () => {
       const label = app.todoList.querySelector('label');
       label.dispatchEvent(new Event('dblclick'));
 
-      const editDateInput = app.todoList.querySelector('input[type="date"].edit-date-input');
+      const editDateInput = app.todoList.querySelector('input[type="datetime-local"].edit-date-input');
       expect(editDateInput).toBeTruthy();
-      expect(editDateInput.value).toBe('2025-12-31');
+      expect(editDateInput.value).toMatch(/2025-12-31/);
 
-      editDateInput.value = '2026-01-01';
+      editDateInput.value = '2026-01-01T00:00';
       editDateInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
 
-      expect(app.todos[0].dueDate).toBe('2026-01-01');
+      // ISO形式で保存されているか確認
+      expect(app.todos[0].dueDate).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
   });
 });

@@ -1,0 +1,40 @@
+name: PR Linear Status Sync
+
+on:
+  pull_request:
+    types: [opened, edited, ready_for_review, converted_to_draft, closed]
+
+jobs:
+  sync-status:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      
+    steps:
+      - name: Extract Linear Issue ID
+        id: extract
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          BODY="${{ github.event.pull_request.body }}"
+          
+          # Extract FORTUNE-XX pattern
+          if [[ "$TITLE" =~ (FORTUNE-[0-9]+) ]]; then
+            echo "issue_id=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          elif [[ "$BODY" =~ (FORTUNE-[0-9]+) ]]; then
+            echo "issue_id=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Update Linear Status
+        if: steps.extract.outputs.issue_id
+        uses: linearapp/linear-action@v1
+        with:
+          api-key: ${{ secrets.LINEAR_API_KEY }}
+          action: update-issue
+          issue-identifier: ${{ steps.extract.outputs.issue_id }}
+          status: |
+            ${{
+              github.event.pull_request.draft && 'In Progress' ||
+              github.event.pull_request.merged && 'Done' ||
+              github.event.pull_request.state == 'closed' && 'Canceled' ||
+              'In Review'
+            }}

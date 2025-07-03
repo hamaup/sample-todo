@@ -1,0 +1,53 @@
+# 自動マージ設定
+
+# マージを許可する条件
+merge_conditions:
+  # 必須のチェック
+  required_checks:
+    - "test"
+    - "build"
+    - "lint"
+  
+  # 必須の承認数
+  required_approvals: 1
+  
+  # ブランチ保護ルール
+  protected_branches:
+    - main
+    - master
+  
+  # 自動マージを許可するラベル
+  allowed_labels:
+    - "auto-merge"
+    - "dependencies"
+    - "automated-fix"
+  
+  # 自動マージを禁止するラベル
+  blocked_labels:
+    - "do-not-merge"
+    - "work-in-progress"
+    - "needs-review"
+
+# マージ方法
+merge_method: "merge" # "merge", "squash", "rebase"
+
+# コンフリクト解決
+conflict_resolution:
+  # 自動的にリベースを試みる
+  auto_rebase: true
+  
+  # リベース失敗時の動作
+  on_rebase_failure: "comment" # "comment", "close", "manual"
+
+# 通知設定
+notifications:
+  # 成功時の通知
+  on_success:
+    - comment: true
+    - close_related_issues: true
+  
+  # 失敗時の通知
+  on_failure:
+    - comment: true
+    - assign_to_author: true
+    - add_label: "needs-attention"

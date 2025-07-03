@@ -56,3 +56,26 @@
 - 破壊的変更の自動マージ
 - 手動レビューが必要なPRの自動処理
 
+## 06-マージ後自動処理
+
+### 自動実行タスク
+1. **CHANGELOG.md更新**
+   - Conventional Commits形式の解析
+   - セマンティックバージョニングに従った更新
+   
+2. **Linear Issue管理**
+   - FORTUNE-XXX形式のIssue自動クローズ
+   - マージ完了コメントの追加
+   
+3. **リリースノート生成**
+   - docs/RELEASE_NOTES.mdの更新
+   - 重要な変更点の要約
+
+4. **GitHub Release作成**
+   - `release`ラベル付きPRの場合
+   - タグ作成とリリースノート公開
+
+### 実行条件
+- mainブランチへのマージ時のみ
+- Claude Code GitHub Actionsによる自動実行
+

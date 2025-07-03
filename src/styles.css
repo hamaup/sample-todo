@@ -707,3 +707,199 @@ mark {
     opacity: 0.8;
   }
 }
+
+/* タブシステムのスタイル */
+.tab-navigation {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 4px;
+  background: var(--surface-bg);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.tab-button {
+  flex: 1;
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.tab-button:hover {
+  background: rgba(0, 191, 165, 0.1);
+  color: var(--text-primary);
+}
+
+.tab-button.active {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.tab-pane {
+  display: none;
+  animation: fadeIn var(--transition-base) ease-out;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 統一されたボタンスタイル */
+button,
+.button,
+.filter-button,
+.tab-button,
+.export-json,
+.export-csv,
+.import-button,
+.selection-mode-toggle,
+.bulk-complete,
+.bulk-uncomplete,
+.bulk-delete,
+.comment-button {
+  padding: 10px 20px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+button:hover,
+.button:hover,
+.filter-button:hover,
+.export-json:hover,
+.export-csv:hover,
+.import-button:hover,
+.selection-mode-toggle:hover,
+.bulk-complete:hover,
+.bulk-uncomplete:hover,
+.bulk-delete:hover,
+.comment-button:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+button:active,
+.button:active,
+.filter-button:active,
+.export-json:active,
+.export-csv:active,
+.import-button:active,
+.selection-mode-toggle:active,
+.bulk-complete:active,
+.bulk-uncomplete:active,
+.bulk-delete:active,
+.comment-button:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 特定のボタンスタイル調整 */
+.filter-button {
+  background: rgba(0, 191, 165, 0.1);
+  color: var(--text-primary);
+}
+
+.filter-button.active {
+  background: var(--primary-color);
+  color: white;
+}
+
+.export-csv {
+  background: var(--secondary-color);
+}
+
+.export-csv:hover {
+  background: #4054d4;
+}
+
+.bulk-delete,
+.delete-button {
+  background: var(--danger-color);
+}
+
+.bulk-delete:hover,
+.delete-button:hover {
+  background: var(--danger-hover);
+}
+
+/* 一括操作ボタンのグループ */
+.bulk-action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ダークモード時のボタン調整 */
+[data-theme="dark"] button,
+[data-theme="dark"] .button,
+[data-theme="dark"] .filter-button,
+[data-theme="dark"] .tab-button,
+[data-theme="dark"] .export-json,
+[data-theme="dark"] .export-csv,
+[data-theme="dark"] .import-button,
+[data-theme="dark"] .selection-mode-toggle,
+[data-theme="dark"] .bulk-complete,
+[data-theme="dark"] .bulk-uncomplete,
+[data-theme="dark"] .bulk-delete,
+[data-theme="dark"] .comment-button {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .filter-button {
+  background: rgba(0, 229, 204, 0.1);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .filter-button.active {
+  background: var(--primary-color);
+  color: var(--text-primary);
+}
+
+/* コメント機能用スタイル */
+.comment-button {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: rgba(83, 109, 254, 0.1);
+  color: var(--secondary-color);
+}
+
+.comment-button:hover {
+  background: var(--secondary-color);
+  color: white;
+}
+
+[data-theme="dark"] .comment-button {
+  background: rgba(124, 77, 255, 0.1);
+  color: var(--secondary-color);
+}
+
+[data-theme="dark"] .comment-button:hover {
+  background: var(--secondary-color);
+  color: var(--text-primary);
+}

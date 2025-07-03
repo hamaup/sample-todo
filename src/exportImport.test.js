@@ -386,21 +386,22 @@ describe('TODO App Export/Import Functionality', () => {
       expect(global.alert).toHaveBeenCalledWith(expect.stringContaining('CSVファイルの形式が正しくありません'));
     });
 
-    test('should show error when no file is selected', () => {
+    test('should trigger file input when no file is selected', () => {
       // 統計タブに切り替え
       const statsTab = container.querySelector('[data-tab="stats"]');
       statsTab.click();
       
-      // window.alertのモック
-      global.alert = jest.fn();
-      
+      const fileInput = container.querySelector('.import-file-input');
       const importButton = container.querySelector('.import-button');
+      
+      // file inputのclickメソッドをモック
+      fileInput.click = jest.fn();
       
       // ファイルを選択せずにインポートボタンをクリック
       importButton.click();
       
-      // エラーアラートが表示されることを確認
-      expect(global.alert).toHaveBeenCalledWith('インポートするファイルを選択してください。');
+      // ファイル選択ダイアログが開かれることを確認
+      expect(fileInput.click).toHaveBeenCalled();
     });
   });
 

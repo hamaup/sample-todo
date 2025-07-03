@@ -267,12 +267,20 @@ function createTodoApp(container) {
   }
   
   function applyTheme(theme) {
+    // HTMLドキュメント要素にテーマ属性を設定
     document.documentElement.setAttribute('data-theme', theme);
+    
+    // ボディ要素にもクラスを追加（CSS互換性のため）
+    document.body.className = document.body.className.replace(/\s*(light|dark)-theme/g, '');
+    document.body.classList.add(`${theme}-theme`);
+    
     const themeIcon = container.querySelector('.theme-icon');
     const themeToggle = container.querySelector('.theme-toggle');
+    
     if (themeIcon) {
       themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
     }
+    
     if (themeToggle) {
       themeToggle.setAttribute('aria-label', 
         theme === 'dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え'
@@ -803,16 +811,27 @@ function createTodoApp(container) {
   });
   
   // キーボードショートカットシステムの初期化
-  const { KeyboardShortcuts } = require('./keyboardShortcuts');
-  const keyboardShortcuts = new KeyboardShortcuts({
-    container,
-    form,
-    todoList,
-    duplicateTodo
-  });
+  // ブラウザ環境とNode.js環境の両方に対応
+  let KeyboardShortcuts;
+  if (typeof window !== 'undefined' && window.KeyboardShortcuts) {
+    KeyboardShortcuts = window.KeyboardShortcuts;
+  } else if (typeof require !== 'undefined') {
+    ({ KeyboardShortcuts } = require('./keyboardShortcuts'));
+  }
+  let keyboardShortcuts;
+  if (KeyboardShortcuts) {
+    keyboardShortcuts = new KeyboardShortcuts({
+      container,
+      form,
+      todoList,
+      duplicateTodo
+    });
+  }
   
   // テーマトグルボタンのイベント設定
-  themeToggle.addEventListener('click', toggleTheme);
+  if (themeToggle) {
+    themeToggle.addEventListener('click', toggleTheme);
+  }
   
   // タブ切り替え機能
   const tabButtons = container.querySelectorAll('.tab-button');
@@ -1056,9 +1075,8 @@ function createTodoApp(container) {
     const file = fileInput.files[0];
     
     if (!file) {
-      if (typeof window.alert === 'function') {
-        window.alert('インポートするファイルを選択してください。');
-      }
+      // ファイルが選択されていない場合は、ファイル選択ダイアログを開く
+      fileInput.click();
       return;
     }
     
@@ -1213,6 +1231,14 @@ function createTodoApp(container) {
   // インポートボタンのイベントリスナー
   const importBtn = container.querySelector('.import-button');
   importBtn.addEventListener('click', importData);
+  
+  // ファイル選択時に自動でインポート
+  const fileInput = container.querySelector('.import-file-input');
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) {
+      importData();
+    }
+  });
   
   // 日付範囲フィルターの変更イベント
   const dateRangeFilter = container.querySelector('.date-range-filter');
@@ -1545,4 +1571,12 @@ function createTodoApp(container) {
   };
 }
 
-module.exports = { createTodoApp };
+// ブラウザ環境での使用のためにグローバルスコープに公開
+if (typeof window !== 'undefined') {
+  window.createTodoApp = createTodoApp;
+}
+
+// Node.js環境でのテスト用にエクスポート
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { createTodoApp };
+}

@@ -903,3 +903,74 @@ button:active,
   background: var(--secondary-color);
   color: var(--text-primary);
 }
+
+/* 期限日スタイル */
+.due-date-input {
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 16px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  margin-left: 0.5rem;
+}
+
+.due-date {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--primary-color);
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.todo-item.overdue {
+  background: rgba(239, 68, 68, 0.05);
+  border-left: 4px solid #ef4444;
+}
+
+.todo-item.overdue .due-date {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.todo-item.due-today {
+  background: rgba(245, 158, 11, 0.05);
+  border-left: 4px solid #f59e0b;
+}
+
+.todo-item.due-today .due-date {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  font-weight: bold;
+}
+
+.edit-container {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.edit-container .edit-input {
+  flex: 1;
+}
+
+.edit-container .edit-date-input {
+  width: 150px;
+}
+
+[data-theme="dark"] .due-date-input {
+  background: var(--dark-bg-secondary);
+  border-color: var(--dark-border-color);
+  color: var(--dark-text-primary);
+}
+
+[data-theme="dark"] .todo-item.overdue {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+[data-theme="dark"] .todo-item.due-today {
+  background: rgba(245, 158, 11, 0.1);
+}

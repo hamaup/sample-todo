@@ -20,6 +20,11 @@ function createTodoApp(container) {
               placeholder="TODOを入力"
               aria-label="TODO入力"
             />
+            <input 
+              type="date" 
+              aria-label="期限日"
+              class="due-date-input"
+            />
             <button type="submit">追加</button>
           </form>
           
@@ -153,7 +158,8 @@ function createTodoApp(container) {
             ...todo,
             order: todo.order !== undefined ? todo.order : index,
             createdAt: todo.createdAt || new Date().toISOString(),
-            completedAt: todo.completedAt || null
+            completedAt: todo.completedAt || null,
+            dueDate: todo.dueDate || null
           }));
         }
       }
@@ -609,10 +615,18 @@ function createTodoApp(container) {
       
       if (editingId === todo.id) {
         // 編集モード
+        const editContainer = document.createElement('div');
+        editContainer.className = 'edit-container';
+        
         const editInput = document.createElement('input');
         editInput.type = 'text';
         editInput.className = 'edit-input';
         editInput.value = todo.text;
+        
+        const editDateInput = document.createElement('input');
+        editDateInput.type = 'date';
+        editDateInput.className = 'edit-date-input';
+        editDateInput.value = todo.dueDate || '';
         
         let isFinished = false;
         
@@ -624,6 +638,7 @@ function createTodoApp(container) {
             const newText = editInput.value.trim();
             if (newText !== '') {
               todo.text = newText;
+              todo.dueDate = editDateInput.value || null;
               saveToLocalStorage();
             }
           }
@@ -631,19 +646,36 @@ function createTodoApp(container) {
           render();
         };
         
-        editInput.addEventListener('keydown', (e) => {
+        const handleKeyDown = (e) => {
           if (e.key === 'Enter') {
             finishEditing(true);
           } else if (e.key === 'Escape') {
             finishEditing(false);
           }
-        });
+        };
+        
+        editInput.addEventListener('keydown', handleKeyDown);
+        editDateInput.addEventListener('keydown', handleKeyDown);
         
         editInput.addEventListener('blur', () => {
-          finishEditing(true);
+          setTimeout(() => {
+            if (!editDateInput.matches(':focus')) {
+              finishEditing(true);
+            }
+          }, 100);
         });
         
-        li.appendChild(editInput);
+        editDateInput.addEventListener('blur', () => {
+          setTimeout(() => {
+            if (!editInput.matches(':focus')) {
+              finishEditing(true);
+            }
+          }, 100);
+        });
+        
+        editContainer.appendChild(editInput);
+        editContainer.appendChild(editDateInput);
+        li.appendChild(editContainer);
         setTimeout(() => editInput.focus(), 0);
       } else {
         // 通常モード
@@ -692,6 +724,30 @@ function createTodoApp(container) {
           label.appendChild(span);
         } else {
           label.appendChild(document.createTextNode(' ' + todo.text));
+        }
+        
+        // 期限日の表示
+        if (todo.dueDate) {
+          const dueDateSpan = document.createElement('span');
+          dueDateSpan.className = 'due-date';
+          
+          // 日付をフォーマット (YYYY-MM-DD -> YYYY/MM/DD)
+          const formattedDate = todo.dueDate.replace(/-/g, '/');
+          dueDateSpan.textContent = `期限: ${formattedDate}`;
+          
+          // 期限日の状態をチェック
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const dueDate = new Date(todo.dueDate);
+          dueDate.setHours(0, 0, 0, 0);
+          
+          if (dueDate < today) {
+            li.classList.add('overdue');
+          } else if (dueDate.getTime() === today.getTime()) {
+            li.classList.add('due-today');
+          }
+          
+          label.appendChild(dueDateSpan);
         }
         
         label.addEventListener('dblclick', () => {
@@ -768,18 +824,23 @@ function createTodoApp(container) {
     const text = input.value.trim();
     if (text === '') return;
     
+    const dueDateInput = form.querySelector('input[type="date"]');
+    const dueDate = dueDateInput ? dueDateInput.value : null;
+    
     todos.push({
       id: nextId++,
       text: text,
       completed: false,
       order: todos.length,
       createdAt: new Date().toISOString(),
-      completedAt: null
+      completedAt: null,
+      dueDate: dueDate || null
     });
     
     saveToLocalStorage();
     render();
     input.value = '';
+    if (dueDateInput) dueDateInput.value = '';
   });
   
   // フィルターボタンのイベント設定
@@ -1559,6 +1620,11 @@ function createTodoApp(container) {
     }
   }
 
+  // renderTodos関数を追加（テスト用）
+  function renderTodos() {
+    render();
+  }
+  
   // 初期データがある場合は表示、なくても初期メッセージを設定
   render();
   
@@ -1567,7 +1633,10 @@ function createTodoApp(container) {
     form,
     todoList,
     render, // テスト用に公開
-    duplicateTodo // ショートカット用に公開
+    renderTodos, // テスト用に公開
+    duplicateTodo, // ショートカット用に公開
+    get todos() { return todos; }, // テスト用にgetter経由で公開
+    set todos(value) { todos = value; } // テスト用にsetter経由で公開
   };
 }
 

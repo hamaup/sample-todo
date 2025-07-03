@@ -277,17 +277,14 @@ class KeyboardShortcuts {
   
   selectAllTodos() {
     // 将来の一括選択機能のプレースホルダー
-    console.log('全TODO選択（未実装）');
   }
   
   bulkComplete() {
     // 将来の一括完了機能のプレースホルダー
-    console.log('一括完了（未実装）');
   }
   
   bulkDelete() {
     // 将来の一括削除機能のプレースホルダー
-    console.log('一括削除（未実装）');
   }
   
   // ========== ヘルプシステム ==========
